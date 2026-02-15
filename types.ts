@@ -10,6 +10,7 @@ export interface Product {
   careInstructions?: string;
   rating?: number;
   reviews?: number;
+  sellerId?: string; // New: link product to a seller
 }
 
 export enum Category {
@@ -58,4 +59,30 @@ export interface UserPreferences {
   recentOccasions: string[];
 }
 
-export type ViewState = 'HOME' | 'SHOP' | 'PRODUCT_DETAILS' | 'JOURNAL' | 'PROFILE' | 'SELLER';
+// --- NEW AUTH & MARKETPLACE TYPES ---
+
+export type UserRole = 'guest' | 'buyer' | 'seller' | 'admin';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  shopName?: string; // If seller
+  status?: 'active' | 'blocked'; // For admin control
+}
+
+export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+export interface Order {
+  id: string;
+  date: string;
+  items: CartItem[];
+  total: number;
+  status: OrderStatus;
+  buyerName?: string; // For seller view
+  deliveryAddress?: string; // Simulation
+}
+
+export type ViewState = 'HOME' | 'SHOP' | 'PRODUCT_DETAILS' | 'JOURNAL' | 'PROFILE' | 'SELLER_DASHBOARD' | 'ADMIN_DASHBOARD';

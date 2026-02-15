@@ -1,33 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Product, UserPreferences } from '../types';
 import { Button } from './Button';
-import { PRODUCTS } from '../constants';
 import { getProductRecommendations } from '../services/geminiService';
 
 interface ProductDetailsProps {
-  product: Product;
-  onBack: () => void;
+  allProducts: Product[];
   onAddToCart: (product: Product) => void;
-  onProductSelect?: (product: Product) => void;
 }
 
-export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack, onAddToCart, onProductSelect }) => {
-  // Store products with their specific AI reason
+export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onAddToCart }) => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  // Find product based on URL param
+  const product = allProducts.find(p => p.id === id);
+
   const [aiRecommendations, setAiRecommendations] = useState<(Product & { reason: string })[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [errorRecs, setErrorRecs] = useState(false);
   const [isCareExpanded, setIsCareExpanded] = useState(false);
-  
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [sortOption, setSortOption] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
+
+  // Handle case where product is not found
+  if (!product) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center">
+        <Helmet>
+          <title>Товар не найден | Bloom & Wisp</title>
+        </Helmet>
+        <h2 className="text-2xl font-serif mb-4">Товар не найден</h2>
+        <Button onClick={() => navigate('/catalog')}>Вернуться в каталог</Button>
+      </div>
+    );
+  }
+
   // Standard recommendations (category based) without reasons
-  const recommendations = PRODUCTS.filter(p => p.category === product.category && p.id !== product.id).slice(0, 3);
+  const recommendations = allProducts.filter(p => p.category === product.category && p.id !== product.id).slice(0, 3);
+
+  useEffect(() => {
+    setIsFavorite(false);
+    setSortOption('relevance');
+    window.scrollTo(0, 0); // Scroll to top on product change
+  }, [product.id]);
 
   useEffect(() => {
     const fetchAiRecs = async () => {
       setLoadingRecs(true);
       setErrorRecs(false);
       
-      // Simulated User Context with richer data (Translated)
       const userProfile: UserPreferences = {
         pastPurchases: ["Коробка Бархатных Роз", "Керамическая Ваза Artisan"],
         favoriteColors: ["Шалфейный зеленый", "Нежно-розовый", "Кремовый"],
@@ -36,12 +60,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
       };
       
       try {
-        const aiResults = await getProductRecommendations(product, PRODUCTS, userProfile);
+        const aiResults = await getProductRecommendations(product, allProducts, userProfile);
         
         if (aiResults && aiResults.length > 0) {
-          // Merge the AI result (id + reason) with the full product data
           const recs = aiResults.map(res => {
-              const p = PRODUCTS.find(prod => prod.id === res.id);
+              const p = allProducts.find(prod => prod.id === res.id);
               return p ? { ...p, reason: res.reason } : null;
           }).filter(Boolean) as (Product & { reason: string })[];
           
@@ -59,15 +82,27 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
     };
 
     fetchAiRecs();
-  }, [product]);
+  }, [product, allProducts]);
 
-  // Determine which items to display in the AI section (AI results or Fallback)
   const hasAiRecs = aiRecommendations.length > 0;
-  const displayRecs: (Product & { reason?: string })[] = hasAiRecs ? aiRecommendations : recommendations.slice(0, 2);
+  let displayRecs: (Product & { reason?: string })[] = hasAiRecs 
+    ? [...aiRecommendations] 
+    : [...recommendations.slice(0, 2)];
+
+  if (sortOption === 'price_asc') {
+      displayRecs.sort((a, b) => a.price - b.price);
+  } else if (sortOption === 'price_desc') {
+      displayRecs.sort((a, b) => b.price - a.price);
+  }
 
   return (
     <div className="animate-in slide-in-from-right duration-300">
-      <button onClick={onBack} className="flex items-center text-gray-500 hover:text-emerald-800 mb-6 transition-colors">
+      <Helmet>
+        <title>{product.name} | Купить за {product.price} ₽ | Bloom & Wisp</title>
+        <meta name="description" content={product.description} />
+      </Helmet>
+
+      <button onClick={() => navigate('/catalog')} className="flex items-center text-gray-700 hover:text-emerald-900 mb-6 transition-colors font-medium">
         <ArrowLeft size={20} className="mr-2" /> Вернуться в каталог
       </button>
 
@@ -91,8 +126,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
               <p className="text-emerald-600 font-medium text-sm uppercase tracking-wider mb-2">{product.category}</p>
               <h1 className="font-serif text-4xl md:text-5xl text-gray-900 mb-4">{product.name}</h1>
             </div>
-            <button className="p-3 rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors">
-              <Heart size={24} />
+            <button 
+              onClick={() => setIsFavorite(!isFavorite)}
+              className={`p-3 rounded-full transition-colors ${isFavorite ? 'bg-rose-100 text-rose-500' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
+            >
+              <Heart size={24} fill={isFavorite ? "currentColor" : "none"} />
             </button>
           </div>
 
@@ -120,13 +158,31 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
           <div className="mb-8 p-6 bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-50"></div>
              
-             <div className="flex items-center gap-2 mb-4 text-emerald-900 relative z-10">
-               {errorRecs ? (
-                  <AlertCircle size={20} className="text-rose-400" />
-               ) : (
-                  <Sparkles size={20} className="text-emerald-500 animate-pulse" />
+             <div className="flex flex-wrap items-center justify-between gap-4 mb-4 relative z-10">
+               <div className="flex items-center gap-2 text-emerald-900">
+                 {errorRecs ? (
+                    <AlertCircle size={20} className="text-rose-400" />
+                 ) : (
+                    <Sparkles size={20} className="text-emerald-500 animate-pulse" />
+                 )}
+                 <h3 className="font-serif font-semibold text-lg">Выбор Flora для вас</h3>
+               </div>
+               
+               {!loadingRecs && !errorRecs && displayRecs.length > 0 && (
+                   <div className="flex items-center gap-2 bg-white/60 border border-emerald-100 rounded-full px-3 py-1 hover:bg-white transition-colors">
+                     <SlidersHorizontal size={14} className="text-emerald-600" />
+                     <select 
+                       value={sortOption}
+                       onChange={(e) => setSortOption(e.target.value as any)}
+                       className="text-xs bg-transparent text-emerald-800 focus:outline-none cursor-pointer appearance-none pr-4"
+                       style={{ backgroundImage: 'none' }}
+                     >
+                       <option value="relevance">По рекомендации</option>
+                       <option value="price_asc">Сначала дешевле</option>
+                       <option value="price_desc">Сначала дороже</option>
+                     </select>
+                   </div>
                )}
-               <h3 className="font-serif font-semibold text-lg">Выбор Flora для вас</h3>
              </div>
              
              <p className="text-sm text-gray-500 mb-4 relative z-10">
@@ -135,9 +191,9 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
                ) : hasAiRecs ? (
                  <>Подобрано на основе вашего вкуса к <strong>экологичной</strong> и <strong>теплой</strong> эстетике.</>
                ) : errorRecs ? (
-                 <span className="italic text-gray-500">Flora сейчас отдыхает. Вот популярные товары из этой категории:</span>
+                 <span className="italic text-rose-500 font-medium">Не удалось подобрать пары. Предлагаем посмотреть похожие товары из категории:</span>
                ) : (
-                 <span className="italic">Flora обновляет каталог. А пока, взгляните на эти бестселлеры:</span>
+                 <span className="italic">Не нашлось персональных рекомендаций, но взгляните на эти популярные товары из той же категории:</span>
                )}
              </p>
 
@@ -146,12 +202,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
                  {[1, 2].map((i) => (
                    <div key={i} className="flex gap-3 bg-white p-3 rounded-xl shadow-sm border border-emerald-50">
                       <div className="w-20 h-20 rounded-lg bg-gray-100 animate-pulse flex-shrink-0" />
-                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
-                         <div className="h-3 bg-gray-100 rounded w-3/4 animate-pulse" />
-                         <div className="h-8 bg-emerald-50/50 rounded-lg w-full animate-pulse opacity-50" />
-                         <div className="mt-auto flex items-center justify-between">
-                             <div className="h-3 bg-gray-100 rounded w-10 animate-pulse" />
-                             <div className="h-6 bg-gray-100 rounded-full w-14 animate-pulse" />
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                         <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse mb-2" />
+                         <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/30 mb-2">
+                           <div className="h-2 w-full bg-emerald-100/50 rounded animate-pulse" />
+                         </div>
+                         <div className="mt-auto flex items-center justify-between pt-1">
+                             <div className="h-3 bg-gray-200 rounded w-10 animate-pulse" />
+                             <div className="h-7 bg-emerald-50 rounded-full w-24 animate-pulse border border-emerald-100/50" />
                          </div>
                       </div>
                    </div>
@@ -160,18 +218,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
              ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                  {displayRecs.length > 0 ? displayRecs.map(rec => (
-                   <div key={rec.id} className="flex gap-3 bg-white p-3 rounded-xl shadow-sm border border-emerald-50 hover:border-emerald-200 transition-colors cursor-pointer group"
-                        onClick={() => onProductSelect && onProductSelect(rec)}>
+                   <Link to={`/product/${rec.id}`} key={rec.id} className="flex gap-3 bg-white p-3 rounded-xl shadow-sm border border-emerald-50 hover:border-emerald-200 transition-colors cursor-pointer group">
                       <img src={rec.image} alt={rec.name} className="w-20 h-20 rounded-lg object-cover" />
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                          <h4 className="font-medium text-gray-900 text-sm truncate group-hover:text-emerald-800 transition-colors">{rec.name}</h4>
                          {rec.reason && (
-                           <div className="mt-2 flex flex-col gap-1 bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
-                             <div className="flex items-center gap-1">
-                               <Sparkles size={10} className="text-emerald-600" />
-                               <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider">Совет Flora</span>
+                           <div className="mt-2 flex flex-col gap-1 bg-emerald-50 rounded-lg p-2.5 border border-emerald-100">
+                             <div className="flex items-center gap-1.5">
+                               <Sparkles size={12} className="text-emerald-600" />
+                               <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Совет Flora</span>
                              </div>
-                             <p className="text-[10px] text-emerald-800 leading-snug">
+                             <p className="text-xs text-emerald-900 leading-snug font-medium">
                                {rec.reason}
                              </p>
                            </div>
@@ -179,14 +236,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
                          <div className="mt-auto flex items-center justify-between pt-2">
                              <p className="text-gray-500 text-xs font-medium">{rec.price.toFixed(2)} ₽</p>
                              <button 
-                               onClick={(e) => { e.stopPropagation(); onAddToCart(rec); }}
-                               className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(rec); }}
+                               className="text-xs font-medium text-white bg-emerald-600 px-3 py-1.5 rounded-full hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-sm"
                              >
-                               <Plus size={10} /> В корзину
+                               <Plus size={14} /> В корзину
                              </button>
                          </div>
                       </div>
-                   </div>
+                   </Link>
                  )) : (
                    <div className="col-span-2 text-center text-sm text-gray-400 italic">
                      Нет подходящих рекомендаций.
@@ -241,12 +298,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ product, onBack,
           <h3 className="font-serif text-2xl mb-8">Вам также понравится</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {recommendations.map(p => (
-              <div key={p.id} className="group cursor-pointer" onClick={() => onProductSelect && onProductSelect(p)}>
-                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 mb-4">
-                  <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                </div>
-                <h4 className="font-serif font-medium">{p.name}</h4>
-                <p className="text-gray-500">{p.price.toFixed(2)} ₽</p>
+              <div key={p.id} className="group cursor-pointer">
+                <Link to={`/product/${p.id}`} className="block">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 mb-4">
+                        <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <h4 className="font-serif font-medium text-gray-900">{p.name}</h4>
+                    <p className="text-gray-500">{p.price.toFixed(2)} ₽</p>
+                </Link>
               </div>
             ))}
           </div>
