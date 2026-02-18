@@ -1,10 +1,17 @@
+
 import { Product, Category, BlogPost, SellerStat } from './types';
+
+// Mock Store ID for main seller
+const MAIN_STORE_ID = 's1';
 
 export const PRODUCTS: Product[] = [
   {
     id: '1',
+    storeId: MAIN_STORE_ID,
     name: 'Дыхание Весны',
     price: 45.00,
+    stock: 15,
+    isActive: true,
     category: Category.BOUQUETS,
     image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?q=80&w=800&auto=format&fit=crop',
     description: 'Сочный микс тюльпанов и нарциссов — воплощение пробуждения природы.',
@@ -16,8 +23,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '2',
+    storeId: MAIN_STORE_ID,
     name: 'Бархатный Шик',
     price: 89.99,
+    stock: 8,
+    isActive: true,
     category: Category.BOUQUETS,
     image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop',
     description: 'Безупречные красные розы в премиальной шляпной коробке.',
@@ -29,8 +39,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '3',
+    storeId: MAIN_STORE_ID,
     name: 'Монстера Делициоза',
     price: 35.00,
+    stock: 20,
+    isActive: true,
     category: Category.POTTED,
     image: 'https://images.unsplash.com/photo-1614594975525-e45190c55d0b?q=80&w=800&auto=format&fit=crop',
     description: 'Легендарное растение с резными листьями. Стильное и неприхотливое.',
@@ -41,8 +54,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '4',
+    storeId: MAIN_STORE_ID,
     name: 'Богемная Рапсодия',
     price: 55.00,
+    stock: 12,
+    isActive: true,
     category: Category.DRIED,
     image: 'https://images.unsplash.com/photo-1662369628045-3df53eb24d86?q=80&w=800&auto=format&fit=crop',
     description: 'Долговечная интерьерная композиция из пампасной травы и лагуруса.',
@@ -53,8 +69,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '5',
+    storeId: MAIN_STORE_ID,
     name: 'Нежность Невесты',
     price: 120.00,
+    stock: 5,
+    isActive: true,
     category: Category.WEDDING,
     image: 'https://images.unsplash.com/photo-1523693916904-896866160167?q=80&w=800&auto=format&fit=crop',
     description: 'Воздушные пионы и эвкалипт — квинтэссенция свадебной элегантности.',
@@ -64,8 +83,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '6',
+    storeId: MAIN_STORE_ID,
     name: 'Ваза Artisan "Крафт"',
     price: 28.00,
+    stock: 50,
+    isActive: true,
     category: Category.GIFTS,
     image: 'https://images.unsplash.com/photo-1612196808214-b7e239e5f6b7?q=80&w=800&auto=format&fit=crop',
     description: 'Керамическая ваза ручной работы с уникальной текстурой глазури.',
@@ -75,8 +97,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '7',
+    storeId: MAIN_STORE_ID,
     name: 'Огненный Закат',
     price: 42.50,
+    stock: 18,
+    isActive: true,
     category: Category.BOUQUETS,
     image: 'https://images.unsplash.com/photo-1599733589046-10c005739ef9?q=80&w=800&auto=format&fit=crop',
     description: 'Пышные георгины теплых оттенков, напоминающие о летних вечерах.',
@@ -86,8 +111,11 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: '8',
+    storeId: MAIN_STORE_ID,
     name: 'Фикус Лирата',
     price: 65.00,
+    stock: 7,
+    isActive: true,
     category: Category.POTTED,
     image: 'https://images.unsplash.com/photo-1616690248297-236b231eb93a?q=80&w=800&auto=format&fit=crop',
     description: 'Деревце с крупными скульптурными листьями — главный акцент вашего интерьера.',

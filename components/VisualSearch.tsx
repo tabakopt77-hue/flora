@@ -18,7 +18,10 @@ export const VisualSearch: React.FC<VisualSearchProps> = ({ isOpen, onClose, onS
   if (!isOpen) return null;
 
   const handleFile = async (file: File) => {
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file || !file.type.startsWith('image/')) {
+        alert("Пожалуйста, выберите изображение.");
+        return;
+    }
 
     // Show preview
     const objectUrl = URL.createObjectURL(file);
@@ -49,6 +52,17 @@ export const VisualSearch: React.FC<VisualSearchProps> = ({ isOpen, onClose, onS
       console.error(error);
       setIsAnalyzing(false);
       setPreviewUrl(null);
+      alert("Произошла ошибка при обработке изображения.");
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+    // Reset input value to allow selecting the same file again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -106,9 +120,9 @@ export const VisualSearch: React.FC<VisualSearchProps> = ({ isOpen, onClose, onS
             <input 
               ref={fileInputRef}
               type="file" 
-              accept="image/*" 
+              accept="image/png, image/jpeg, image/webp, image/heic"
               className="hidden" 
-              onChange={(e) => e.target.files && handleFile(e.target.files[0])}
+              onChange={handleFileChange}
             />
 
             {isAnalyzing ? (
@@ -123,7 +137,6 @@ export const VisualSearch: React.FC<VisualSearchProps> = ({ isOpen, onClose, onS
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                    <p className="text-white font-medium">Нажмите, чтобы выбрать другое</p>
                 </div>
-                {/* Clicking image triggers file input again via parent onClick, handled below manually if needed, but css handles UI */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setPreviewUrl(null); }}
                   className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-full text-sm font-medium shadow-lg"

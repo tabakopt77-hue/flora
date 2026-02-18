@@ -1,16 +1,22 @@
-export interface Product {
+
+export type UserRole = 'guest' | 'buyer' | 'seller' | 'admin';
+
+export interface User {
   id: string;
   name: string;
-  price: number;
-  category: Category;
-  image: string;
-  description: string;
-  longDescription?: string;
-  tags: string[];
-  careInstructions?: string;
-  rating?: number;
-  reviews?: number;
-  sellerId?: string; // New: link product to a seller
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  shopName?: string; // If seller (Frontend helper, backend uses Store relation)
+  status?: 'active' | 'blocked';
+}
+
+export interface Store {
+  id: string;
+  ownerId: string;
+  name: string;
+  rating: number;
+  status: 'active' | 'pending' | 'blocked';
 }
 
 export enum Category {
@@ -21,11 +27,53 @@ export enum Category {
   GIFTS = 'Подарки и вазы'
 }
 
+export interface Product {
+  id: string;
+  storeId?: string; // Link to Store
+  name: string;
+  price: number;
+  stock: number; // Inventory tracking
+  isActive: boolean; // Soft delete/Hide
+  category: Category;
+  image: string;
+  description: string;
+  longDescription?: string;
+  tags: string[];
+  careInstructions?: string;
+  rating?: number;
+  reviews?: number;
+}
+
 export interface CartItem extends Product {
   quantity: number;
   giftMessage?: string;
   deliveryDate?: string;
   deliveryTimeSlot?: string;
+}
+
+// OrderItem stores a snapshot of the price at the time of purchase
+export interface OrderItem {
+  productId: string;
+  name: string;
+  image: string;
+  quantity: number;
+  priceSnapshot: number; 
+  giftMessage?: string;
+}
+
+export type OrderStatus = 'created' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | 'pending' | 'confirmed' | 'delivered'; // Mixed legacy and new statuses for transition
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+
+export interface Order {
+  id: string;
+  userId?: string;
+  date: string;
+  items: CartItem[]; // Frontend uses CartItem, Backend will use OrderItem
+  total: number;
+  status: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  buyerName?: string;
+  deliveryAddress?: string;
 }
 
 export interface ChatMessage {
@@ -48,7 +96,7 @@ export interface BlogPost {
 export interface SellerStat {
   label: string;
   value: string;
-  change: number; // percentage
+  change: number;
   trend: 'up' | 'down';
 }
 
@@ -59,30 +107,16 @@ export interface UserPreferences {
   recentOccasions: string[];
 }
 
-// --- NEW AUTH & MARKETPLACE TYPES ---
-
-export type UserRole = 'guest' | 'buyer' | 'seller' | 'admin';
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar?: string;
-  shopName?: string; // If seller
-  status?: 'active' | 'blocked'; // For admin control
+export interface AuthResponse {
+  user: User;
+  token: string;
+  expiresIn: number;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-
-export interface Order {
-  id: string;
-  date: string;
-  items: CartItem[];
-  total: number;
-  status: OrderStatus;
-  buyerName?: string; // For seller view
-  deliveryAddress?: string; // Simulation
+export interface DecodedToken {
+  userId: string;
+  role: UserRole;
+  exp: number;
 }
 
 export type ViewState = 'HOME' | 'SHOP' | 'PRODUCT_DETAILS' | 'JOURNAL' | 'PROFILE' | 'SELLER_DASHBOARD' | 'ADMIN_DASHBOARD';

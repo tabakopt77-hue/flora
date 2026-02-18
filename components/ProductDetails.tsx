@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp, SlidersHorizontal, Share2, Check, PackageX, Radio } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Product, UserPreferences } from '../types';
@@ -23,31 +24,30 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
   const [errorRecs, setErrorRecs] = useState(false);
   const [isCareExpanded, setIsCareExpanded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isShared, setIsShared] = useState(false);
   const [sortOption, setSortOption] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
 
-  // Handle case where product is not found
-  if (!product) {
-    return (
-      <div className="container mx-auto px-4 py-32 text-center">
-        <Helmet>
-          <title>Товар не найден | Bloom & Wisp</title>
-        </Helmet>
-        <h2 className="text-2xl font-serif mb-4">Товар не найден</h2>
-        <Button onClick={() => navigate('/catalog')}>Вернуться в каталог</Button>
-      </div>
-    );
-  }
+  // Stock status logic
+  const isOutOfStock = product ? product.stock <= 0 : false;
+  const isLowStock = product ? product.stock > 0 && product.stock < 5 : false;
 
-  // Standard recommendations (category based) without reasons
-  const recommendations = allProducts.filter(p => p.category === product.category && p.id !== product.id).slice(0, 3);
+  // Calculate recommendations safely
+  const recommendations = product 
+    ? allProducts.filter(p => p.category === product.category && p.id !== product.id && p.stock > 0).slice(0, 3)
+    : [];
 
   useEffect(() => {
-    setIsFavorite(false);
-    setSortOption('relevance');
-    window.scrollTo(0, 0); // Scroll to top on product change
-  }, [product.id]);
+    if (product) {
+      setIsFavorite(false);
+      setIsShared(false);
+      setSortOption('relevance');
+      window.scrollTo(0, 0); // Scroll to top on product change
+    }
+  }, [product?.id]);
 
   useEffect(() => {
+    if (!product) return;
+
     const fetchAiRecs = async () => {
       setLoadingRecs(true);
       setErrorRecs(false);
@@ -84,7 +84,28 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
     fetchAiRecs();
   }, [product, allProducts]);
 
+  const handleShare = () => {
+    if (!product) return;
+    navigator.clipboard.writeText(window.location.href);
+    setIsShared(true);
+    setTimeout(() => setIsShared(false), 2000);
+  };
+
+  // Handle case where product is not found
+  if (!product) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center">
+        <Helmet>
+          <title>Товар не найден | Bloom & Wisp</title>
+        </Helmet>
+        <h2 className="text-2xl font-serif mb-4">Товар не найден</h2>
+        <Button onClick={() => navigate('/catalog')}>Вернуться в каталог</Button>
+      </div>
+    );
+  }
+
   const hasAiRecs = aiRecommendations.length > 0;
+  
   let displayRecs: (Product & { reason?: string })[] = hasAiRecs 
     ? [...aiRecommendations] 
     : [...recommendations.slice(0, 2)];
@@ -109,12 +130,19 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
         <div className="space-y-4">
           <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 shadow-lg relative">
-             <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+             <img src={product.image} alt={product.name} className={`w-full h-full object-cover transition-all ${isOutOfStock ? 'grayscale opacity-70' : ''}`} />
+             {isOutOfStock && (
+                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                     <span className="bg-white/90 text-rose-600 px-6 py-3 rounded-full font-bold text-lg shadow-xl transform -rotate-12 border border-rose-100">
+                         Нет в наличии
+                     </span>
+                 </div>
+             )}
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="aspect-square rounded-lg overflow-hidden bg-gray-100 opacity-70 hover:opacity-100 cursor-pointer transition-opacity">
-                <img src={product.image} alt="Thumbnail" className="w-full h-full object-cover" />
+                <img src={product.image} alt="Thumbnail" className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`} />
               </div>
             ))}
           </div>
@@ -126,12 +154,26 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
               <p className="text-emerald-600 font-medium text-sm uppercase tracking-wider mb-2">{product.category}</p>
               <h1 className="font-serif text-4xl md:text-5xl text-gray-900 mb-4">{product.name}</h1>
             </div>
-            <button 
-              onClick={() => setIsFavorite(!isFavorite)}
-              className={`p-3 rounded-full transition-colors ${isFavorite ? 'bg-rose-100 text-rose-500' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
-            >
-              <Heart size={24} fill={isFavorite ? "currentColor" : "none"} />
-            </button>
+            <div className="flex gap-2">
+                <button 
+                  onClick={handleShare}
+                  className={`p-3 rounded-full transition-colors relative group ${isShared ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'}`}
+                  title="Поделиться"
+                >
+                  {isShared ? <Check size={24} /> : <Share2 size={24} />}
+                  {isShared && (
+                    <div className="absolute top-full right-0 mt-2 px-3 py-1.5 bg-emerald-900 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 animate-in fade-in slide-in-from-top-1 pointer-events-none">
+                      Ссылка на "{product.name}" скопирована! 🌷
+                    </div>
+                  )}
+                </button>
+                <button 
+                  onClick={() => setIsFavorite(!isFavorite)}
+                  className={`p-3 rounded-full transition-colors ${isFavorite ? 'bg-rose-100 text-rose-600' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'}`}
+                >
+                  <Heart size={24} fill={isFavorite ? "currentColor" : "none"} />
+                </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 mb-6">
@@ -139,6 +181,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
               {[...Array(5)].map((_, i) => <Star key={i} size={16} fill={i < Math.floor(product.rating || 0) ? "currentColor" : "none"} />)}
             </div>
             <span className="text-gray-500 text-sm">{product.reviews} отзывов</span>
+            {isLowStock && (
+                <span className="text-rose-600 text-sm font-medium bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertCircle size={12} /> Осталось всего {product.stock} шт.
+                </span>
+            )}
+            {!isOutOfStock && !isLowStock && (
+                <span className="text-emerald-600 text-[10px] font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-full animate-pulse">
+                    <Radio size={10} className="text-emerald-500" />
+                    Live Stock
+                </span>
+            )}
           </div>
 
           <p className="text-2xl font-serif text-gray-900 mb-6">{product.price.toFixed(2)} ₽</p>
@@ -148,29 +201,38 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
           </div>
 
           <div className="space-y-6 mb-8">
-            <Button size="lg" className="w-full py-4 text-lg" onClick={() => onAddToCart(product)}>
-              Добавить в корзину
-            </Button>
+            {isOutOfStock ? (
+                <div className="w-full py-4 text-lg bg-gray-100 text-gray-400 rounded-full font-medium text-center cursor-not-allowed flex items-center justify-center gap-2">
+                    <PackageX size={20} />
+                    Товар закончился
+                </div>
+            ) : (
+                <Button size="lg" className="w-full py-4 text-lg" onClick={() => onAddToCart(product)}>
+                  Добавить в корзину
+                </Button>
+            )}
             <p className="text-xs text-center text-gray-500">Бесплатная доставка при заказе от 10 000 ₽</p>
           </div>
 
           {/* AI Recommendations Section */}
-          <div className="mb-8 p-6 bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl relative overflow-hidden">
+          <div className={`mb-8 p-6 bg-gradient-to-br from-emerald-50 to-white border ${errorRecs ? 'border-rose-100' : 'border-emerald-100'} rounded-2xl relative overflow-hidden transition-colors`}>
              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-50"></div>
              
              <div className="flex flex-wrap items-center justify-between gap-4 mb-4 relative z-10">
                <div className="flex items-center gap-2 text-emerald-900">
                  {errorRecs ? (
-                    <AlertCircle size={20} className="text-rose-400" />
+                    <AlertCircle size={20} className="text-rose-500" />
                  ) : (
                     <Sparkles size={20} className="text-emerald-500 animate-pulse" />
                  )}
-                 <h3 className="font-serif font-semibold text-lg">Выбор Flora для вас</h3>
+                 <h3 className={`font-serif font-semibold text-lg ${errorRecs ? 'text-rose-900' : 'text-emerald-900'}`}>
+                   {errorRecs ? 'Рекомендации' : 'Выбор Flora для вас'}
+                 </h3>
                </div>
                
                {!loadingRecs && !errorRecs && displayRecs.length > 0 && (
                    <div className="flex items-center gap-2 bg-white/60 border border-emerald-100 rounded-full px-3 py-1 hover:bg-white transition-colors">
-                     <SlidersHorizontal size={14} className="text-emerald-600" />
+                     <SlidersHorizontal size={14} className="text-emerald-700" />
                      <select 
                        value={sortOption}
                        onChange={(e) => setSortOption(e.target.value as any)}
@@ -185,31 +247,52 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                )}
              </div>
              
-             <p className="text-sm text-gray-500 mb-4 relative z-10">
-               {loadingRecs ? (
-                 <span className="italic">Ищу идеальные сочетания...</span>
-               ) : hasAiRecs ? (
-                 <>Подобрано на основе вашего вкуса к <strong>экологичной</strong> и <strong>теплой</strong> эстетике.</>
-               ) : errorRecs ? (
-                 <span className="italic text-rose-500 font-medium">Не удалось подобрать пары. Предлагаем посмотреть похожие товары из категории:</span>
-               ) : (
-                 <span className="italic">Не нашлось персональных рекомендаций, но взгляните на эти популярные товары из той же категории:</span>
-               )}
-             </p>
+             {/* Robust Inline Error Message */}
+             {errorRecs && (
+                <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 mb-4 flex gap-3 items-start relative z-10 animate-in fade-in">
+                    <AlertCircle size={20} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="text-sm font-semibold text-rose-900">Не удалось загрузить рекомендации AI</h4>
+                        <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                            Наш ИИ-флорист сейчас отдыхает. Но не переживайте, мы подобрали для вас популярные товары из этой же категории!
+                        </p>
+                    </div>
+                </div>
+             )}
+
+             {!errorRecs && (
+                <p className="text-sm text-gray-500 mb-4 relative z-10">
+                {loadingRecs ? (
+                    <span className="italic">Ищу идеальные сочетания...</span>
+                ) : hasAiRecs ? (
+                    <>Подобрано на основе вашего вкуса к <strong>экологичной</strong> и <strong>теплой</strong> эстетике.</>
+                ) : (
+                    <span className="italic">Не нашлось персональных рекомендаций, но взгляните на эти популярные товары из той же категории:</span>
+                )}
+                </p>
+             )}
 
              {loadingRecs ? (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                  {[1, 2].map((i) => (
                    <div key={i} className="flex gap-3 bg-white p-3 rounded-xl shadow-sm border border-emerald-50">
+                      {/* Image Skeleton */}
                       <div className="w-20 h-20 rounded-lg bg-gray-100 animate-pulse flex-shrink-0" />
+                      
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
-                         <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse mb-2" />
-                         <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/30 mb-2">
-                           <div className="h-2 w-full bg-emerald-100/50 rounded animate-pulse" />
+                         {/* Title Skeleton */}
+                         <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse mb-2" />
+                         
+                         {/* Reason Skeleton mimicking the actual 'Flora Tip' box */}
+                         <div className="mt-1 bg-emerald-50/30 rounded-lg p-2 border border-emerald-50 mb-2">
+                           <div className="h-2 w-20 bg-emerald-100/50 rounded animate-pulse mb-1.5" />
+                           <div className="h-2 w-full bg-emerald-100/40 rounded animate-pulse" />
                          </div>
+
+                         {/* Footer: Price and Button Skeleton */}
                          <div className="mt-auto flex items-center justify-between pt-1">
-                             <div className="h-3 bg-gray-200 rounded w-10 animate-pulse" />
-                             <div className="h-7 bg-emerald-50 rounded-full w-24 animate-pulse border border-emerald-100/50" />
+                             <div className="h-3 bg-gray-100 rounded w-12 animate-pulse" />
+                             <div className="h-7 bg-emerald-50 rounded-full w-20 animate-pulse" />
                          </div>
                       </div>
                    </div>
@@ -218,11 +301,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
              ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                  {displayRecs.length > 0 ? displayRecs.map(rec => (
-                   <Link to={`/product/${rec.id}`} key={rec.id} className="flex gap-3 bg-white p-3 rounded-xl shadow-sm border border-emerald-50 hover:border-emerald-200 transition-colors cursor-pointer group">
+                   <Link to={`/product/${rec.id}`} key={rec.id} className={`flex gap-3 bg-white p-3 rounded-xl shadow-sm border ${errorRecs ? 'border-gray-200 hover:border-gray-300' : 'border-emerald-50 hover:border-emerald-200'} transition-colors cursor-pointer group`}>
                       <img src={rec.image} alt={rec.name} className="w-20 h-20 rounded-lg object-cover" />
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                          <h4 className="font-medium text-gray-900 text-sm truncate group-hover:text-emerald-800 transition-colors">{rec.name}</h4>
-                         {rec.reason && (
+                         {rec.reason ? (
                            <div className="mt-2 flex flex-col gap-1 bg-emerald-50 rounded-lg p-2.5 border border-emerald-100">
                              <div className="flex items-center gap-1.5">
                                <Sparkles size={12} className="text-emerald-600" />
@@ -232,12 +315,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                                {rec.reason}
                              </p>
                            </div>
+                         ) : (
+                           <div className="mt-2 text-xs text-gray-500 line-clamp-2">
+                             {rec.description}
+                           </div>
                          )}
                          <div className="mt-auto flex items-center justify-between pt-2">
                              <p className="text-gray-500 text-xs font-medium">{rec.price.toFixed(2)} ₽</p>
                              <button 
                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(rec); }}
-                               className="text-xs font-medium text-white bg-emerald-600 px-3 py-1.5 rounded-full hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-sm"
+                               className={`text-xs font-medium text-white px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 shadow-sm ${errorRecs ? 'bg-gray-700 hover:bg-gray-800' : 'bg-emerald-700 hover:bg-emerald-800'}`}
                              >
                                <Plus size={14} /> В корзину
                              </button>
@@ -292,25 +379,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
           )}
         </div>
       </div>
-
-      {recommendations.length > 0 && (
-        <div className="border-t border-gray-200 pt-16">
-          <h3 className="font-serif text-2xl mb-8">Вам также понравится</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {recommendations.map(p => (
-              <div key={p.id} className="group cursor-pointer">
-                <Link to={`/product/${p.id}`} className="block">
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 mb-4">
-                        <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    </div>
-                    <h4 className="font-serif font-medium text-gray-900">{p.name}</h4>
-                    <p className="text-gray-500">{p.price.toFixed(2)} ₽</p>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
