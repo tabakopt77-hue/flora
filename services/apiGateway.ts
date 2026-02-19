@@ -1,270 +1,76 @@
-
-import { Order } from '../types';
-import { GoogleGenAI } from "@google/genai";
-
-const REAL_BACKEND_URL = 'http://localhost:8080/api/v1';
-
-// Initialize Client-Side AI for Fallback Mode safely
-let genAI: GoogleGenAI | null = null;
-
-try {
-    // Attempt to find key in various common env locations or fallback to undefined
-    const key = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
-    
-    if (key) {
-        genAI = new GoogleGenAI({ apiKey: key });
-    } else {
-        console.warn("[Aura Flora] API Key not found. AI features will use mock data.");
-    }
-} catch (e) {
-    console.warn("[Aura Flora] Failed to initialize Google GenAI SDK:", e);
-}
-
-// Simulation of network characteristics per service
-const simulateServiceCall = async (serviceType: 'rust' | 'node' | 'python') => {
-    let latency = 0;
-    switch (serviceType) {
-        case 'rust': 
-            latency = Math.floor(Math.random() * 40) + 10; 
-            break;
-        case 'node':
-            latency = Math.floor(Math.random() * 60) + 20; 
-            break;
-        case 'python':
-            latency = Math.floor(Math.random() * 400) + 100; 
-            break;
-    }
-    return new Promise(resolve => setTimeout(resolve, latency));
-};
+const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 interface ServiceResponse<T> {
     data?: T;
     error?: string;
     status: number;
-    meta: {
-        service: string;
-        latency: string;
-        traceId: string;
-        timestamp: number;
-        mode: 'REAL' | 'SIMULATION';
-    }
 }
 
-// --- GATEWAY EXPORT ---
+const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem('bloom_jwt_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const apiGateway = {
-    /**
-     * Proxies requests. Tries Real Backend first (Hybrid Architecture).
-     * If backend is offline, falls back to Client-Side Logic (Serverless/Mock).
-     */
-    request: async <T>(
-        target: 'core' | 'ai' | 'auth', 
-        endpoint: string, 
-        payload?: any,
-        method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'POST'
-    ): Promise<ServiceResponse<T>> => {
-        const start = Date.now();
-        const traceId = `req_${Math.random().toString(36).substr(2, 9)}`;
-
-        console.log(`[Gateway] Routing ${traceId} -> ${target.toUpperCase()} Service: ${method} ${endpoint}`);
-
-        // 1. Try REAL BACKEND
+    request: async <T>(_service: string, endpoint: string, body?: any): Promise<ServiceResponse<T>> => {
+        const url = `${BACKEND_URL}${endpoint}`;
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000); // Short timeout for demo
-
-            const headers: Record<string, string> = {};
-            let body = undefined;
-            
-            if (payload) {
-                if (payload instanceof FormData) {
-                    body = payload;
-                } else {
-                    headers['Content-Type'] = 'application/json';
-                    body = JSON.stringify(payload);
-                }
-            }
-
-            const token = localStorage.getItem('bloom_jwt_token');
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
-            const response = await fetch(`${REAL_BACKEND_URL}${endpoint}`, {
-                method,
-                headers,
-                body,
-                signal: controller.signal
+            const isFormData = body instanceof FormData;
+            const response = await fetch(url, {
+                method: body ? 'POST' : 'GET',
+                headers: { ...getAuthHeader(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) },
+                body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+                signal: AbortSignal.timeout(15_000),
             });
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                const data = await response.json();
-                return {
-                    status: 200,
-                    data: data as T,
-                    meta: {
-                        service: `${target}-prod`,
-                        latency: `${Date.now() - start}ms`,
-                        traceId,
-                        timestamp: Date.now(),
-                        mode: 'REAL'
-                    }
-                };
-            }
-        } catch (e) {
-            // Backend unreachable, proceed to fallback
+            if (response.status === 204) return { status: 200 };
+            const data = await response.json().catch(() => null);
+            if (!response.ok) return { status: response.status, error: data?.error || `HTTP ${response.status}` };
+            return { status: 200, data: data as T };
+        } catch (err: any) {
+            if (err.name === 'TimeoutError') return { status: 408, error: 'Сервер не ответил вовремя.' };
+            if (err.name === 'TypeError') return { status: 0, error: 'Нет связи с сервером.' };
+            return { status: 500, error: err.message || 'Неизвестная ошибка' };
         }
-
-        // 2. FALLBACK TO CLIENT-SIDE SIMULATION
-        
-        let mockData: any = {};
-        let serviceName = 'gateway-sim';
-
-        try {
-            await simulateServiceCall(target === 'core' ? 'rust' : target === 'ai' ? 'python' : 'node');
-
-            // --- AI FALLBACK (Uses Client-Side Gemini SDK) ---
-            if (target === 'ai') {
-                serviceName = 'client-gemini-sdk';
-                
-                // Only try to use Gemini if initialized and key exists
-                if (genAI) {
-                    try {
-                        if (endpoint === '/ai/chat') {
-                            const fullPrompt = payload.messages.map((m: any) => 
-                                `${m.role === 'model' ? 'Model' : 'User'}: ${m.parts[0].text}`
-                            ).join('\n');
-
-                            const response = await genAI.models.generateContent({
-                                model: 'gemini-2.5-flash-latest',
-                                contents: fullPrompt,
-                                config: { systemInstruction: "You are Flora, a helpful AI florist assistant." }
-                            });
-                            
-                            mockData = { text: response.text };
-                        } 
-                        else if (endpoint === '/ai/vision') {
-                             const formData = payload as FormData;
-                             const prompt = formData.get('prompt') as string;
-                             const file = formData.get('image') as File;
-                             
-                             if (file && prompt) {
-                                const arrayBuffer = await file.arrayBuffer();
-                                const base64String = btoa(
-                                    new Uint8Array(arrayBuffer)
-                                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
-                                );
-                                
-                                const response = await genAI.models.generateContent({
-                                     model: 'gemini-2.5-flash-latest',
-                                     contents: {
-                                         parts: [
-                                             { text: prompt },
-                                             { inlineData: { mimeType: file.type, data: base64String } }
-                                         ]
-                                     }
-                                });
-                                mockData = { text: response.text };
-                             }
-                        }
-                    } catch (aiError) {
-                        console.error("AI Request Failed:", aiError);
-                        // Fallback to static mock if AI call fails (e.g. quota exceeded or bad key)
-                        mockData = { text: "Извините, сейчас высокая нагрузка на AI-сервис. (Mock Response)" };
-                    }
-                } else {
-                    // No API Key Fallback
-                    mockData = { text: "Режим демо: API ключ не найден. (Пожалуйста, добавьте API_KEY для работы ИИ)" };
-                    
-                    if (endpoint.includes('chat') && payload.messages) {
-                         // Simple keyword matching for demo
-                         const lastMsg = payload.messages[payload.messages.length - 1]?.parts?.[0]?.text?.toLowerCase() || "";
-                         if (lastMsg.includes('розы')) mockData = { text: "У нас отличные розы сорта Гран-При. Взгляните на букет 'Бархатный Шик' :::PRODUCT:2:::." };
-                    }
-                }
-            }
-            
-            // --- AUTH FALLBACK ---
-            else if (target === 'auth') {
-                serviceName = 'client-auth-mock';
-                if (endpoint === '/auth/login' || endpoint === '/auth/register') {
-                     mockData = {
-                        token: "mock_jwt_token_" + Date.now(),
-                        user: {
-                            id: 'u1',
-                            name: 'Алексей Смирнов',
-                            email: payload.email,
-                            role: payload.email.includes('admin') ? 'admin' : payload.email.includes('partner') ? 'seller' : 'buyer',
-                            avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop',
-                            status: 'active'
-                        }
-                    };
-                }
-            }
-
-            // --- CORE FALLBACK ---
-            else if (target === 'core') {
-                serviceName = 'client-core-mock';
-                // Note: GET requests for Lists usually return arrays, POST returns Objects
-                if (endpoint === '/products' && method === 'GET') {
-                    // Fallback to local constants if backend down
-                    const { PRODUCTS } = await import('../constants');
-                    mockData = PRODUCTS;
-                }
-                else if (endpoint === '/orders/create') {
-                    mockData = {
-                        id: `ORD-MOCK-${Math.floor(Math.random() * 10000)}`,
-                        status: 'created',
-                        ...payload
-                    };
-                }
-                else if (endpoint === '/payments/charge') {
-                    mockData = { transactionId: `TX-MOCK-${Date.now()}` };
-                }
-                else if (endpoint.match(/\/orders\/.*\/status/) && method === 'PUT') {
-                    mockData = { status: payload.status, success: true };
-                }
-                else if (endpoint === '/orders' || endpoint === '/orders/my') {
-                     mockData = []; // Return empty list for now in fallback
-                }
-            }
-
-        } catch (error: any) {
-            console.error("Simulation Error:", error);
-            if (target === 'ai') {
-                mockData = { text: "Извините, я сейчас не могу подключиться к серверу AI." };
-            } else {
-                return {
-                    status: 500,
-                    error: "Service Simulation Failed",
-                    meta: { service: serviceName, latency: '0ms', traceId, timestamp: Date.now(), mode: 'SIMULATION' }
-                };
-            }
-        }
-
-        const duration = Date.now() - start;
-
-        return {
-            status: 200,
-            data: mockData as T,
-            meta: {
-                service: serviceName,
-                latency: `${duration}ms`,
-                traceId,
-                timestamp: Date.now(),
-                mode: 'SIMULATION'
-            }
-        };
     },
 
-    getTelemetry: async () => {
-        const jitter = (base: number) => base + Math.floor(Math.random() * 10) - 5;
-        return {
-            gateway: { status: 'healthy', uptime: '99.99%', rps: jitter(340), active_sockets: 1200 },
-            rust: { status: 'healthy', active_connections: 45, tx_per_sec: jitter(120), lock_contention: '0.01%' },
-            python: { status: 'healthy', gpu_load: '45%', queue_depth: Math.max(0, jitter(3)), model: 'gemini-pro-vision' },
-            kafka: { status: 'healthy', lag: 0, brokers: 3, throughput: `${jitter(45)}MB/s` }
-        };
-    }
+    get: async <T>(endpoint: string): Promise<ServiceResponse<T>> => {
+        const url = `${BACKEND_URL}${endpoint}`;
+        try {
+            const response = await fetch(url, { headers: getAuthHeader(), signal: AbortSignal.timeout(15_000) });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) return { status: response.status, error: data?.error };
+            return { status: 200, data: data as T };
+        } catch (err: any) {
+            return { status: 0, error: err.message };
+        }
+    },
+
+    put: async <T>(endpoint: string, body: any): Promise<ServiceResponse<T>> => {
+        const url = `${BACKEND_URL}${endpoint}`;
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(15_000),
+            });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) return { status: response.status, error: data?.error };
+            return { status: 200, data: data as T };
+        } catch (err: any) {
+            return { status: 0, error: err.message };
+        }
+    },
+
+    delete: async <T>(endpoint: string): Promise<ServiceResponse<T>> => {
+        const url = `${BACKEND_URL}${endpoint}`;
+        try {
+            const response = await fetch(url, { method: 'DELETE', headers: getAuthHeader(), signal: AbortSignal.timeout(15_000) });
+            const data = await response.json().catch(() => null);
+            if (!response.ok) return { status: response.status, error: data?.error };
+            return { status: 200, data: data as T };
+        } catch (err: any) {
+            return { status: 0, error: err.message };
+        }
+    },
 };
