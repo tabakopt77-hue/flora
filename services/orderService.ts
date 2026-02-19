@@ -1,5 +1,5 @@
 
-import { Order, CartItem, User } from '../types';
+import { Order, CartItem, User, OrderStatus } from '../types';
 import { db } from './db';
 import { apiGateway } from './apiGateway';
 
@@ -39,6 +39,19 @@ export const orderService = {
      } catch (e) {
          return db.orders.getAll();
      }
+  },
+
+  /**
+   * Updates order status (Seller/Admin)
+   */
+  updateStatus: async (orderId: string, status: OrderStatus): Promise<boolean> => {
+      try {
+          const response = await apiGateway.request('core', `/orders/${orderId}/status`, { status }, 'PUT');
+          return response.status === 200;
+      } catch (e) {
+          console.error("Failed to update status", e);
+          return false;
+      }
   },
 
   /**

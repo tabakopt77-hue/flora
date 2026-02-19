@@ -27,6 +27,16 @@ export enum Category {
   GIFTS = 'Подарки и вазы'
 }
 
+export type ModerationStatus = 'pending' | 'approved' | 'rejected' | 'auto_approved';
+
+export interface AIVerdict {
+  isSafe: boolean;
+  qualityScore: number; // 0-100
+  tags: string[];
+  reason: string;
+  flaggedIssues?: string[];
+}
+
 export interface Product {
   id: string;
   storeId?: string; // Link to Store
@@ -34,6 +44,8 @@ export interface Product {
   price: number;
   stock: number; // Inventory tracking
   isActive: boolean; // Soft delete/Hide
+  moderationStatus?: ModerationStatus;
+  aiVerdict?: AIVerdict; // Stored result of AI check
   category: Category;
   image: string;
   description: string;
@@ -117,6 +129,22 @@ export interface DecodedToken {
   userId: string;
   role: UserRole;
   exp: number;
+}
+
+export interface PriceAnalysis {
+    suggestedPrice: number;
+    marketAverage: number;
+    confidence: number;
+    reasoning: string;
+    competitorCount: number;
+}
+
+export interface DemandForecast {
+    period: string;
+    trend: 'rising' | 'falling' | 'stable';
+    predictedSalesGrowth: number; // percentage
+    topKeywords: string[];
+    actionableTips: string[];
 }
 
 export type ViewState = 'HOME' | 'SHOP' | 'PRODUCT_DETAILS' | 'JOURNAL' | 'PROFILE' | 'SELLER_DASHBOARD' | 'ADMIN_DASHBOARD';

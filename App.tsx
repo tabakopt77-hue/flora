@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ShoppingBag, Search, Menu, Sparkles, X, Camera, User as UserIcon, CheckCircle, Wand2, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Search, Menu, Sparkles, X, Camera, User as UserIcon, CheckCircle, Wand2, ArrowRight, Gift } from 'lucide-react';
 import { HERO_IMAGE, BLOG_POSTS } from './constants';
 import { Product, Category, CartItem, Order, OrderStatus } from './types';
 import { ProductCard } from './components/ProductCard';
@@ -24,6 +24,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { db } from './services/db';
 import { orderService } from './services/orderService';
 import { productService } from './services/productService';
+import { GiftWizard } from './components/GiftWizard';
 
 // --- Layout Component ---
 const Layout = ({ children, fullWidth = false, cartCount, isMobileMenuOpen, setIsMobileMenuOpen, searchQuery, setSearchQuery, setIsVisualSearchOpen, handleProfileClick, setIsCartOpen, scrolled }: any) => {
@@ -41,7 +42,7 @@ const Layout = ({ children, fullWidth = false, cartCount, isMobileMenuOpen, setI
                 {isMobileMenuOpen ? <X className="text-emerald-900" /> : <Menu className={`hover:text-emerald-800 ${scrolled || location.pathname !== '/' || isDashboard ? 'text-gray-800' : 'text-white'}`} />}
                 </button>
                 <Link to="/" className={`font-serif text-2xl font-bold tracking-tight ${scrolled || location.pathname !== '/' || isDashboard ? 'text-emerald-900' : 'text-white md:text-emerald-900'}`}>
-                Bloom & Wisp
+                Aura Flora
                 </Link>
             </div>
 
@@ -138,10 +139,10 @@ const Layout = ({ children, fullWidth = false, cartCount, isMobileMenuOpen, setI
 
 // --- Page Components ---
 
-const Home = ({ allProducts, onAddToCart, onQuickView, navigate, setIsAiOpen }: any) => (
+const Home = ({ allProducts, onAddToCart, onQuickView, navigate, setIsAiOpen, setIsGiftWizardOpen }: any) => (
     <>
       <Helmet>
-        <title>Bloom & Wisp - Премиальный цветочный маркетплейс</title>
+        <title>Aura Flora - Премиальный цветочный маркетплейс</title>
       </Helmet>
       <section className="relative min-h-screen flex items-center bg-emerald-950 overflow-hidden pt-20">
          <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
@@ -156,16 +157,21 @@ const Home = ({ allProducts, onAddToCart, onQuickView, navigate, setIsAiOpen }: 
               чувства.
             </h1>
             <p className="text-emerald-100/70 text-base md:text-lg max-w-lg mx-auto lg:mx-0 leading-relaxed font-light">
-              Авторские букеты с доставкой день в день. Мы объединили мастерство флористов и технологии ИИ.
+              Авторские букеты от Aura Flora с доставкой день в день. Мы объединили мастерство флористов и технологии ИИ.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
               <Button size="lg" className="bg-white text-emerald-950 hover:bg-emerald-50 rounded-full px-8 h-14 text-base" onClick={() => navigate('/catalog')}>
                 Выбрать букет
               </Button>
-              <Button size="lg" variant="outlineWhite" className="rounded-full px-8 h-14 text-base" onClick={() => setIsAiOpen(true)}>
-                <Sparkles size={18} className="mr-2" />
-                Подобрать с AI
+              <Button size="lg" variant="outlineWhite" className="rounded-full px-8 h-14 text-base" onClick={() => setIsGiftWizardOpen(true)}>
+                <Gift size={18} className="mr-2" />
+                Подобрать подарок
               </Button>
+            </div>
+            <div className="pt-2">
+                 <button onClick={() => setIsAiOpen(true)} className="text-emerald-200/60 hover:text-emerald-100 flex items-center gap-2 mx-auto lg:mx-0 text-sm transition-colors">
+                     <Sparkles size={14} /> Чат с флористом Flora AI
+                 </button>
             </div>
           </div>
           <div className="order-1 lg:order-2 relative h-[50vh] lg:h-[80vh] w-full flex items-center justify-center">
@@ -203,7 +209,7 @@ const Shop = ({ allProducts, onAddToCart, onQuickView, activeCategory, setActive
 
     return (
       <div className="container mx-auto px-4 md:px-8 py-32">
-        <Helmet><title>Каталог | Bloom & Wisp</title></Helmet>
+        <Helmet><title>Каталог | Aura Flora</title></Helmet>
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
           <h2 className="font-serif text-4xl text-emerald-900">Каталог</h2>
           <div className="flex gap-2 overflow-x-auto max-w-full pb-2 md:pb-0 hide-scrollbar">
@@ -235,7 +241,7 @@ const Shop = ({ allProducts, onAddToCart, onQuickView, activeCategory, setActive
 
 const Journal = () => (
     <div className="container mx-auto px-4 md:px-8 py-32">
-       <Helmet><title>Блог | Bloom & Wisp</title></Helmet>
+       <Helmet><title>Блог | Aura Flora</title></Helmet>
        <div className="max-w-4xl mx-auto text-center mb-16">
           <h2 className="font-serif text-4xl text-emerald-900 mb-4">Журнал</h2>
           <p className="text-gray-500 text-lg font-light">Истории о цветах, людях и чувствах.</p>
@@ -282,6 +288,7 @@ const AppContent: React.FC = () => {
   // Modals & Drawers
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isGiftWizardOpen, setIsGiftWizardOpen] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -460,12 +467,16 @@ const AppContent: React.FC = () => {
      }
   };
   
-  const handleUpdateOrderStatus = (orderId: string, status: OrderStatus) => {
-      // Optimistic update
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-      // In real app, call API
-      db.orders.updateStatus(orderId, status); // Temporary fallback to local DB logic for orders update in demo
-      addToast('success', `Статус заказа обновлен на ${status}`);
+  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
+      const success = await orderService.updateStatus(orderId, status);
+      if (success) {
+          setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+          // Fallback sync for demo continuity if relying on db.ts as cache
+          db.orders.updateStatus(orderId, status);
+          addToast('success', `Статус заказа обновлен на ${status}`);
+      } else {
+          addToast('error', 'Не удалось обновить статус');
+      }
   };
 
   const generateMessageForItem = async (itemId: string, productName: string) => {
@@ -543,7 +554,7 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/" element={
             <Layout {...layoutProps}>
-                <Home allProducts={allProducts} onAddToCart={handleAddToCart} onQuickView={setQuickViewProduct} navigate={navigate} setIsAiOpen={setIsAiOpen} />
+                <Home allProducts={allProducts} onAddToCart={handleAddToCart} onQuickView={setQuickViewProduct} navigate={navigate} setIsAiOpen={setIsAiOpen} setIsGiftWizardOpen={setIsGiftWizardOpen} />
             </Layout>
         } />
         <Route path="/catalog" element={
@@ -711,6 +722,12 @@ const AppContent: React.FC = () => {
           onAddToCart={handleAddToCart} 
           onQuickView={setQuickViewProduct} 
       />
+      <GiftWizard 
+          isOpen={isGiftWizardOpen} 
+          onClose={() => setIsGiftWizardOpen(false)} 
+          allProducts={allProducts} 
+          onAddToCart={handleAddToCart}
+      />
       <VisualSearch isOpen={isVisualSearchOpen} onClose={() => setIsVisualSearchOpen(false)} onSearch={(term) => { setSearchQuery(term); navigate('/catalog'); }} />
       <QuickViewModal product={quickViewProduct} isOpen={!!quickViewProduct} onClose={() => setQuickViewProduct(null)} onAddToCart={handleAddToCart} onGoToDetails={(p) => navigate(`/product/${p.id}`)} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={(u) => handleLogin(u.role === 'admin' ? 'Admin' : u.role === 'seller' ? 'Partner' : 'Google')} />
@@ -721,7 +738,7 @@ const AppContent: React.FC = () => {
               <button onClick={() => setIsCheckoutSuccess(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
               <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600"><CheckCircle size={32} /></div>
               <h3 className="font-serif text-2xl text-emerald-900 mb-2">Заказ оформлен!</h3>
-              <p className="text-gray-500 mb-6">Спасибо за выбор Bloom & Wisp. Менеджер свяжется с вами в течение 10 минут для подтверждения.</p>
+              <p className="text-gray-500 mb-6">Спасибо за выбор Aura Flora. Менеджер свяжется с вами в течение 10 минут для подтверждения.</p>
               <Button onClick={() => setIsCheckoutSuccess(false)} className="w-full">Отлично</Button>
            </div>
         </div>

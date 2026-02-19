@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Camera, X, Loader2, UploadCloud, Image as ImageIcon } from 'lucide-react';
 import { Button } from './Button';
@@ -162,7 +163,7 @@ export const VisualSearch: React.FC<VisualSearchProps> = ({ isOpen, onClose, onS
 
           {!isAnalyzing && !previewUrl && (
             <div className="mt-6 text-center">
-              <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Или попробуйте найти</p>
+              <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">Или попробуйте найти</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {['Красные Розы', 'Пионы', 'Подсолнухи', 'Кактус'].map(term => (
                   <button 

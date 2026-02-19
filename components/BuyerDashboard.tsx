@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
-import { Package, Clock, Heart, LogOut, Settings, User as UserIcon, MapPin, CreditCard, Bell } from 'lucide-react';
-import { User, Order } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Package, Clock, Heart, LogOut, Settings, User as UserIcon, MapPin, CreditCard, Bell, Sparkles, ArrowRight } from 'lucide-react';
+import { User, Order, Product, UserPreferences } from '../types';
 import { Button } from './Button';
+import { PRODUCTS } from '../constants'; // Fallback / mock source for recs
+import { getProductRecommendations } from '../services/geminiService';
+import { Link } from 'react-router-dom';
 
 interface BuyerDashboardProps {
   user: User;
@@ -12,9 +15,45 @@ interface BuyerDashboardProps {
 
 export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, onLogout, orders }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'favorites'>('orders');
+  const [aiRecommendations, setAiRecommendations] = useState<(Product & { reason: string })[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
 
   // Strict ownership check (IDOR protection on frontend level)
   const myOrders = orders.filter(o => o.userId === user.id);
+
+  useEffect(() => {
+    if (activeTab === 'favorites') {
+        const fetchRecs = async () => {
+            setLoadingRecs(true);
+            try {
+                // Simulate user profile for AI
+                const userProfile: UserPreferences = {
+                    pastPurchases: myOrders.flatMap(o => o.items.map(i => i.name)),
+                    favoriteColors: ["Пастельные", "Белый"],
+                    preferredStyle: ["Минимализм"],
+                    recentOccasions: ["День рождения"]
+                };
+                
+                // We pick a random product as a "seed" if no history, or use purchase history
+                const seedProduct = PRODUCTS[0]; 
+                
+                const recs = await getProductRecommendations(seedProduct, PRODUCTS, userProfile);
+                 if (recs && recs.length > 0) {
+                    const fullRecs = recs.map(res => {
+                        const p = PRODUCTS.find(prod => prod.id === res.id);
+                        return p ? { ...p, reason: res.reason } : null;
+                    }).filter(Boolean) as (Product & { reason: string })[];
+                    setAiRecommendations(fullRecs.slice(0, 2));
+                 }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoadingRecs(false);
+            }
+        };
+        fetchRecs();
+    }
+  }, [activeTab, myOrders]);
 
   const TabButton = ({ id, label, icon: Icon }: any) => (
     <button 
@@ -22,7 +61,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, onLogout, 
       className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-all font-medium ${
         activeTab === id 
         ? 'border-emerald-600 text-emerald-900' 
-        : 'border-transparent text-gray-500 hover:text-gray-800'
+        : 'border-transparent text-gray-600 hover:text-gray-800'
       }`}
     >
       <Icon size={18} />
@@ -65,7 +104,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, onLogout, 
                          <Package size={48} className="mx-auto text-gray-300 mb-4" />
                          <h3 className="text-lg font-medium text-gray-900">У вас пока нет заказов</h3>
                          <p className="text-gray-500 mb-6">Самое время выбрать первый букет!</p>
-                         <Button variant="outline">Перейти в каталог</Button>
+                         <Link to="/catalog"><Button variant="outline">Перейти в каталог</Button></Link>
                      </div>
                  ) : (
                      <div className="grid gap-4">
@@ -157,11 +196,39 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({ user, onLogout, 
          )}
 
          {activeTab === 'favorites' && (
-             <div className="bg-sage-50 rounded-2xl p-12 text-center border border-sage-100 border-dashed animate-in fade-in">
-                  <Heart className="mx-auto text-rose-300 mb-4" size={48} />
-                  <h3 className="font-serif text-xl text-emerald-900 mb-2">Список желаний пуст</h3>
-                  <p className="text-gray-500 mb-6">Добавляйте понравившиеся букеты, чтобы не потерять их.</p>
-                  <Button>Перейти в каталог</Button>
+             <div className="space-y-8 animate-in fade-in">
+                {/* Empty State */}
+                 <div className="bg-sage-50 rounded-2xl p-12 text-center border border-sage-100 border-dashed">
+                      <Heart className="mx-auto text-rose-300 mb-4" size={48} />
+                      <h3 className="font-serif text-xl text-emerald-900 mb-2">Список желаний пуст</h3>
+                      <p className="text-gray-500 mb-6">Но мы знаем, что вам может понравиться:</p>
+                      
+                      {/* AI Recommendations Section */}
+                      {loadingRecs ? (
+                          <div className="flex justify-center py-4"><span className="text-emerald-600 animate-pulse">Flora подбирает для вас...</span></div>
+                      ) : aiRecommendations.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
+                              {aiRecommendations.map(rec => (
+                                   <Link to={`/product/${rec.id}`} key={rec.id} className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex gap-4 hover:border-emerald-300 transition-colors group">
+                                       <img src={rec.image} className="w-20 h-20 rounded-lg object-cover" />
+                                       <div className="flex-1">
+                                           <div className="flex items-center gap-2 mb-1">
+                                               <Sparkles size={12} className="text-emerald-500" />
+                                               <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Flora рекомендует</span>
+                                           </div>
+                                           <h4 className="font-serif font-medium text-gray-900 group-hover:text-emerald-700 transition-colors">{rec.name}</h4>
+                                           <p className="text-xs text-gray-500 line-clamp-2 mt-1">{rec.reason}</p>
+                                       </div>
+                                       <div className="flex items-center justify-center">
+                                           <div className="bg-emerald-50 p-2 rounded-full text-emerald-800 group-hover:bg-emerald-100 transition-colors"><ArrowRight size={16} /></div>
+                                       </div>
+                                   </Link>
+                              ))}
+                          </div>
+                      ) : (
+                          <Link to="/catalog"><Button>Перейти в каталог</Button></Link>
+                      )}
+                 </div>
              </div>
          )}
       </div>

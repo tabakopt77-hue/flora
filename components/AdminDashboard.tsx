@@ -1,19 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { Users, ShoppingBag, ShieldAlert, Activity, Search, MoreVertical, Server, Database, Cpu, Zap, Radio, Terminal, CloudLightning } from 'lucide-react';
-import { User, Order } from '../types';
+import { Users, ShoppingBag, ShieldAlert, Activity, Search, MoreVertical, Server, Database, Cpu, Zap, Radio, Terminal, CloudLightning, Check, X, Eye, AlertTriangle } from 'lucide-react';
+import { User, Order, Product, ModerationStatus } from '../types';
 import { Button } from './Button';
 import { db } from '../services/db';
 import { apiGateway } from '../services/apiGateway';
+import { moderateProduct } from '../services/geminiService';
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'sellers' | 'system'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'sellers' | 'moderation' | 'system'>('overview');
   const [telemetry, setTelemetry] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  
+  // State for Moderation
+  const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Real Data Analysis
   const allOrders = db.orders.getAll();
@@ -25,6 +30,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     { id: 's1', name: 'Green Paradise', email: 'partner@example.com', role: 'seller', status: 'active', shopName: 'Green Paradise' },
     { id: 's2', name: 'Floral Soul', email: 'soul@example.com', role: 'seller', status: 'active', shopName: 'Floral Soul' },
   ];
+  
+  // Load moderation queue (simulated)
+  useEffect(() => {
+      if (activeTab === 'moderation') {
+          // Simulate fetching products with 'pending' status
+          // In a real app, this would be an API call
+          const mockPending: Product[] = allProducts.filter(p => !p.moderationStatus || p.moderationStatus === 'pending').slice(0, 5);
+          
+          // Trigger AI Analysis for them if they don't have a verdict yet
+          mockPending.forEach(async (p) => {
+              if (!p.aiVerdict) {
+                  const verdict = await moderateProduct(p);
+                  p.aiVerdict = verdict; // Mutating for local demo state, in real app update DB
+                  setPendingProducts([...mockPending]); // Trigger re-render
+              }
+          });
+          setPendingProducts(mockPending);
+      }
+  }, [activeTab]);
 
   // System Monitor Effect
   useEffect(() => {
@@ -59,6 +83,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
       return `[${time}] [${service}] ${type}: ${msg}`;
   };
+  
+  const handleModeration = async (product: Product, status: ModerationStatus) => {
+      setProcessingId(product.id);
+      // Simulate API call to update status
+      await new Promise(r => setTimeout(r, 500));
+      
+      product.moderationStatus = status;
+      // Remove from list
+      setPendingProducts(prev => prev.filter(p => p.id !== product.id));
+      setProcessingId(null);
+  };
 
   const renderOverview = () => (
     <div className="space-y-6 animate-in fade-in">
@@ -92,12 +127,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <div className="flex items-center gap-4 mb-4">
                     <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><ShieldAlert size={24} /></div>
                     <div>
-                        <p className="text-sm text-gray-500">Система</p>
-                        <h3 className="text-2xl font-bold">Stable</h3>
+                        <p className="text-sm text-gray-500">Модерация</p>
+                        <h3 className="text-2xl font-bold">{pendingProducts.length}</h3>
                     </div>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+                    <div className="bg-purple-500 h-1.5 rounded-full" style={{ width: '10%' }}></div>
                 </div>
             </div>
         </div>
@@ -114,6 +149,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             <Button variant="outlineWhite" size="sm">Подробнее</Button>
         </div>
     </div>
+  );
+  
+  const renderModeration = () => (
+      <div className="space-y-6 animate-in fade-in">
+          <h3 className="font-serif text-xl mb-4">Очередь модерации AI</h3>
+          {pendingProducts.length === 0 ? (
+              <div className="bg-white p-12 text-center rounded-2xl border border-dashed border-gray-200">
+                  <Check className="mx-auto text-emerald-500 mb-4" size={48} />
+                  <p className="text-gray-500">Все товары проверены! Отличная работа.</p>
+              </div>
+          ) : (
+              <div className="grid grid-cols-1 gap-6">
+                  {pendingProducts.map(product => (
+                      <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col md:flex-row">
+                          <div className="w-full md:w-48 h-48 md:h-auto bg-gray-100 relative">
+                              <img src={product.image} className="w-full h-full object-cover" />
+                              <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                                  {product.category}
+                              </div>
+                          </div>
+                          <div className="p-6 flex-1 flex flex-col justify-between">
+                              <div>
+                                  <div className="flex justify-between items-start mb-2">
+                                      <h4 className="font-bold text-lg text-gray-900">{product.name}</h4>
+                                      <div className="flex items-center gap-2">
+                                          <span className="text-sm font-bold">{product.price} ₽</span>
+                                      </div>
+                                  </div>
+                                  <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
+                                  
+                                  {/* AI Verdict Box */}
+                                  <div className={`p-4 rounded-lg border flex gap-4 ${product.aiVerdict?.isSafe ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                                      <div className={`p-2 rounded-full h-fit ${product.aiVerdict?.isSafe ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                          <ShieldAlert size={20} />
+                                      </div>
+                                      <div>
+                                          <h5 className={`font-bold text-sm ${product.aiVerdict?.isSafe ? 'text-emerald-900' : 'text-rose-900'}`}>
+                                              AI Trust Score: {product.aiVerdict?.qualityScore || '...'}%
+                                          </h5>
+                                          <p className="text-xs mt-1 text-gray-700">
+                                              {product.aiVerdict?.reason || "Анализирую контент..."}
+                                          </p>
+                                          {product.aiVerdict?.flaggedIssues && product.aiVerdict.flaggedIssues.length > 0 && (
+                                              <div className="flex gap-2 mt-2">
+                                                  {product.aiVerdict.flaggedIssues.map(issue => (
+                                                      <span key={issue} className="text-[10px] px-2 py-0.5 bg-rose-200 text-rose-800 rounded-full font-bold uppercase">{issue}</span>
+                                                  ))}
+                                              </div>
+                                          )}
+                                      </div>
+                                  </div>
+                              </div>
+                              
+                              <div className="flex gap-3 mt-6 justify-end">
+                                  <Button 
+                                    variant="outline" 
+                                    className="border-rose-200 text-rose-600 hover:bg-rose-50" 
+                                    onClick={() => handleModeration(product, 'rejected')}
+                                    disabled={processingId === product.id}
+                                  >
+                                      <X size={16} className="mr-2" /> Отклонить
+                                  </Button>
+                                  <Button 
+                                    className="bg-emerald-600 hover:bg-emerald-700" 
+                                    onClick={() => handleModeration(product, 'approved')}
+                                    disabled={processingId === product.id}
+                                  >
+                                      <Check size={16} className="mr-2" /> Опубликовать
+                                  </Button>
+                              </div>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          )}
+      </div>
   );
 
   const renderSystemHealth = () => {
@@ -278,6 +389,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 Обзор
             </button>
             <button 
+                onClick={() => setActiveTab('moderation')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === 'moderation' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+            >
+                Модерация ({pendingProducts.length})
+            </button>
+            <button 
                 onClick={() => setActiveTab('sellers')}
                 className={`px-4 py-2 font-medium transition-colors border-b-2 ${activeTab === 'sellers' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
             >
@@ -292,6 +409,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
 
         {activeTab === 'overview' && renderOverview()}
+        {activeTab === 'moderation' && renderModeration()}
         {activeTab === 'sellers' && renderSellers()}
         {activeTab === 'system' && renderSystemHealth()}
     </div>

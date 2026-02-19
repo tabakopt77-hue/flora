@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
           
           {/* Brand */}
           <div className="space-y-4">
-            <h3 className="font-serif text-2xl text-white tracking-tight">Bloom & Wisp</h3>
+            <h3 className="font-serif text-2xl text-white tracking-tight">Aura Flora</h3>
             <p className="text-sm leading-relaxed max-w-xs opacity-80">
               Маркетплейс авторской флористики, объединяющий технологии ИИ и искусство живых цветов. Доставляем эмоции с 2024 года.
             </p>
@@ -37,7 +37,7 @@ export const Footer: React.FC = () => {
           <div>
             <h4 className="font-serif text-lg text-white mb-6">Компания</h4>
             <ul className="space-y-3 text-sm">
-              <li><Link to="/blog" className="hover:text-white transition-colors">Блог Flora</Link></li>
+              <li><Link to="/blog" className="hover:text-white transition-colors">Блог Aura Flora</Link></li>
               <li><Link to="/about" className="hover:text-white transition-colors">О нас</Link></li>
               <li><Link to="/seller" className="hover:text-white transition-colors">Стать партнером</Link></li>
               <li><a href="#" className="hover:text-white transition-colors">Политика конфиденциальности</a></li>
@@ -59,14 +59,14 @@ export const Footer: React.FC = () => {
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={18} className="text-emerald-400" />
-                <a href="mailto:hello@bloomwisp.com" className="hover:text-white">hello@bloomwisp.com</a>
+                <a href="mailto:hello@auraflora.com" className="hover:text-white">hello@auraflora.com</a>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-emerald-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs opacity-60">
-          <p>© 2024 Bloom & Wisp. Все права защищены.</p>
+          <p>© 2024 Aura Flora. Все права защищены.</p>
           <div className="flex gap-6">
              <span>ИНН 7700000000</span>
              <span>ОГРН 1027700000000</span>

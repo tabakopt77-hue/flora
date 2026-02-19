@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Mail, MessageCircle, Globe, ShieldAlert } from 'lucide-react';
 import { Button } from './Button';
@@ -32,7 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }
         mockUser = {
             id: 'admin1',
             name: 'Главный Администратор',
-            email: 'admin@bloomwisp.com',
+            email: 'admin@auraflora.com',
             role: 'admin',
             avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop',
             status: 'active'
@@ -94,7 +95,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLogin }
           </div>
 
           <p className="text-xs text-gray-400 mt-6 max-w-xs mx-auto">
-            Продолжая, вы соглашаетесь с Политикой конфиденциальности и Условиями использования Bloom & Wisp.
+            Продолжая, вы соглашаетесь с Политикой конфиденциальности и Условиями использования Aura Flora.
           </p>
         </div>
       </div>

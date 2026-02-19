@@ -96,7 +96,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
     return (
       <div className="container mx-auto px-4 py-32 text-center">
         <Helmet>
-          <title>Товар не найден | Bloom & Wisp</title>
+          <title>Товар не найден | Aura Flora</title>
         </Helmet>
         <h2 className="text-2xl font-serif mb-4">Товар не найден</h2>
         <Button onClick={() => navigate('/catalog')}>Вернуться в каталог</Button>
@@ -110,17 +110,49 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
     ? [...aiRecommendations] 
     : [...recommendations.slice(0, 2)];
 
+  // Sorting Logic
   if (sortOption === 'price_asc') {
       displayRecs.sort((a, b) => a.price - b.price);
   } else if (sortOption === 'price_desc') {
       displayRecs.sort((a, b) => b.price - a.price);
   }
+  // 'relevance' preserves the order returned by AI or default recommendation order
+
+  // SCHEMA.ORG JSON-LD GENERATION
+  const structuredData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": product.image,
+    "description": product.description,
+    "brand": {
+      "@type": "Brand",
+      "name": "Aura Flora"
+    },
+    "sku": product.id,
+    "offers": {
+      "@type": "Offer",
+      "url": window.location.href,
+      "priceCurrency": "RUB",
+      "price": product.price,
+      "availability": isOutOfStock ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": product.rating || "5",
+      "reviewCount": product.reviews || "1"
+    }
+  };
 
   return (
     <div className="animate-in slide-in-from-right duration-300">
       <Helmet>
-        <title>{product.name} | Купить за {product.price} ₽ | Bloom & Wisp</title>
+        <title>{product.name} | Купить за {product.price} ₽ | Aura Flora</title>
         <meta name="description" content={product.description} />
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
       </Helmet>
 
       <button onClick={() => navigate('/catalog')} className="flex items-center text-gray-700 hover:text-emerald-900 mb-6 transition-colors font-medium">
@@ -230,13 +262,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                  </h3>
                </div>
                
+               {/* Sort Controls */}
                {!loadingRecs && !errorRecs && displayRecs.length > 0 && (
                    <div className="flex items-center gap-2 bg-white/60 border border-emerald-100 rounded-full px-3 py-1 hover:bg-white transition-colors">
                      <SlidersHorizontal size={14} className="text-emerald-700" />
                      <select 
                        value={sortOption}
                        onChange={(e) => setSortOption(e.target.value as any)}
-                       className="text-xs bg-transparent text-emerald-800 focus:outline-none cursor-pointer appearance-none pr-4"
+                       className="text-xs bg-transparent text-emerald-800 focus:outline-none cursor-pointer appearance-none pr-4 font-medium"
                        style={{ backgroundImage: 'none' }}
                      >
                        <option value="relevance">По рекомендации</option>

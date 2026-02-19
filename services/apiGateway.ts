@@ -4,8 +4,21 @@ import { GoogleGenAI } from "@google/genai";
 
 const REAL_BACKEND_URL = 'http://localhost:8080/api/v1';
 
-// Initialize Client-Side AI for Fallback Mode
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Client-Side AI for Fallback Mode safely
+let genAI: GoogleGenAI | null = null;
+
+try {
+    // Attempt to find key in various common env locations or fallback to undefined
+    const key = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
+    
+    if (key) {
+        genAI = new GoogleGenAI({ apiKey: key });
+    } else {
+        console.warn("[Aura Flora] API Key not found. AI features will use mock data.");
+    }
+} catch (e) {
+    console.warn("[Aura Flora] Failed to initialize Google GenAI SDK:", e);
+}
 
 // Simulation of network characteristics per service
 const simulateServiceCall = async (serviceType: 'rust' | 'node' | 'python') => {
@@ -58,7 +71,7 @@ export const apiGateway = {
         // 1. Try REAL BACKEND
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); 
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // Short timeout for demo
 
             const headers: Record<string, string> = {};
             let body = undefined;
@@ -104,7 +117,6 @@ export const apiGateway = {
         }
 
         // 2. FALLBACK TO CLIENT-SIDE SIMULATION
-        // This ensures the app works beautifully without the Rust/Python backend running locally.
         
         let mockData: any = {};
         let serviceName = 'gateway-sim';
@@ -116,42 +128,60 @@ export const apiGateway = {
             if (target === 'ai') {
                 serviceName = 'client-gemini-sdk';
                 
-                if (endpoint === '/ai/chat') {
-                    const fullPrompt = payload.messages.map((m: any) => 
-                        `${m.role === 'model' ? 'Model' : 'User'}: ${m.parts[0].text}`
-                    ).join('\n');
+                // Only try to use Gemini if initialized and key exists
+                if (genAI) {
+                    try {
+                        if (endpoint === '/ai/chat') {
+                            const fullPrompt = payload.messages.map((m: any) => 
+                                `${m.role === 'model' ? 'Model' : 'User'}: ${m.parts[0].text}`
+                            ).join('\n');
 
-                    const response = await genAI.models.generateContent({
-                        model: 'gemini-2.5-flash-latest',
-                        contents: fullPrompt,
-                        config: { systemInstruction: "You are Flora, a helpful AI florist assistant." }
-                    });
-                    
-                    mockData = { text: response.text };
-                } 
-                else if (endpoint === '/ai/vision') {
-                     const formData = payload as FormData;
-                     const prompt = formData.get('prompt') as string;
-                     const file = formData.get('image') as File;
-                     
-                     if (file && prompt) {
-                        const arrayBuffer = await file.arrayBuffer();
-                        const base64String = btoa(
-                            new Uint8Array(arrayBuffer)
-                                .reduce((data, byte) => data + String.fromCharCode(byte), '')
-                        );
-                        
-                        const response = await genAI.models.generateContent({
-                             model: 'gemini-2.5-flash-latest',
-                             contents: {
-                                 parts: [
-                                     { text: prompt },
-                                     { inlineData: { mimeType: file.type, data: base64String } }
-                                 ]
+                            const response = await genAI.models.generateContent({
+                                model: 'gemini-2.5-flash-latest',
+                                contents: fullPrompt,
+                                config: { systemInstruction: "You are Flora, a helpful AI florist assistant." }
+                            });
+                            
+                            mockData = { text: response.text };
+                        } 
+                        else if (endpoint === '/ai/vision') {
+                             const formData = payload as FormData;
+                             const prompt = formData.get('prompt') as string;
+                             const file = formData.get('image') as File;
+                             
+                             if (file && prompt) {
+                                const arrayBuffer = await file.arrayBuffer();
+                                const base64String = btoa(
+                                    new Uint8Array(arrayBuffer)
+                                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                                );
+                                
+                                const response = await genAI.models.generateContent({
+                                     model: 'gemini-2.5-flash-latest',
+                                     contents: {
+                                         parts: [
+                                             { text: prompt },
+                                             { inlineData: { mimeType: file.type, data: base64String } }
+                                         ]
+                                     }
+                                });
+                                mockData = { text: response.text };
                              }
-                        });
-                        mockData = { text: response.text };
-                     }
+                        }
+                    } catch (aiError) {
+                        console.error("AI Request Failed:", aiError);
+                        // Fallback to static mock if AI call fails (e.g. quota exceeded or bad key)
+                        mockData = { text: "Извините, сейчас высокая нагрузка на AI-сервис. (Mock Response)" };
+                    }
+                } else {
+                    // No API Key Fallback
+                    mockData = { text: "Режим демо: API ключ не найден. (Пожалуйста, добавьте API_KEY для работы ИИ)" };
+                    
+                    if (endpoint.includes('chat') && payload.messages) {
+                         // Simple keyword matching for demo
+                         const lastMsg = payload.messages[payload.messages.length - 1]?.parts?.[0]?.text?.toLowerCase() || "";
+                         if (lastMsg.includes('розы')) mockData = { text: "У нас отличные розы сорта Гран-При. Взгляните на букет 'Бархатный Шик' :::PRODUCT:2:::." };
+                    }
                 }
             }
             
@@ -192,12 +222,18 @@ export const apiGateway = {
                 else if (endpoint === '/payments/charge') {
                     mockData = { transactionId: `TX-MOCK-${Date.now()}` };
                 }
+                else if (endpoint.match(/\/orders\/.*\/status/) && method === 'PUT') {
+                    mockData = { status: payload.status, success: true };
+                }
+                else if (endpoint === '/orders' || endpoint === '/orders/my') {
+                     mockData = []; // Return empty list for now in fallback
+                }
             }
 
         } catch (error: any) {
             console.error("Simulation Error:", error);
             if (target === 'ai') {
-                mockData = { text: "Извините, я сейчас не могу подключиться к серверу AI. Попробуйте позже." };
+                mockData = { text: "Извините, я сейчас не могу подключиться к серверу AI." };
             } else {
                 return {
                     status: 500,
