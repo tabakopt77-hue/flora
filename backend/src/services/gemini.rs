@@ -19,7 +19,7 @@ pub struct GeminiService;
 impl GeminiService {
     pub async fn generate_content(api_key: &str, messages: Vec<GeminiMessage>) -> Result<String, AppError> {
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={}", 
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={}", 
             api_key
         );
 
@@ -57,7 +57,7 @@ impl GeminiService {
 
     pub async fn vision_generate(api_key: &str, prompt: &str, image_bytes: &[u8], mime_type: &str) -> Result<String, AppError> {
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={}", 
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={}", 
             api_key
         );
 

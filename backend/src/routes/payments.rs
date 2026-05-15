@@ -10,6 +10,7 @@ use crate::middleware::auth::AuthUser;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/charge", post(charge))
+        .route("/sber/register", post(sber_register))
 }
 
 #[derive(Deserialize)]
@@ -25,6 +26,72 @@ struct ChargeResponse {
     success: bool,
     transaction_id: String,
     status: String,
+}
+
+// Sberbank specific structs
+#[derive(Deserialize)]
+struct SberRegisterRequest {
+    order_id: Uuid,
+    amount: Decimal, // In Rubles
+    return_url: String,
+}
+
+#[derive(Serialize)]
+struct SberRegisterResponse {
+    order_id: String, // Sberbank MDOrder
+    form_url: String, // Redirect URL
+}
+
+async fn sber_register(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(payload): Json<SberRegisterRequest>,
+) -> Result<Json<SberRegisterResponse>, AppError> {
+
+    // 1. Verify Order in DB
+    let order = sqlx::query!(
+        "SELECT id, total FROM orders WHERE id = $1",
+        payload.order_id
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(AppError::BadRequest("Order not found".into()))?;
+
+    // Check amount match (security)
+    if order.total != payload.amount {
+        return Err(AppError::BadRequest("Amount mismatch".into()));
+    }
+
+    // 2. Prepare request to Sberbank
+    let amount_cents = (payload.amount * Decimal::from(100)).to_i64().unwrap_or(0);
+    let sber_url = format!("{}/register.do", state.config.sberbank_api_url);
+    
+    // In production, you would make the actual request here:
+    /*
+    let params = [
+        ("userName", &state.config.sberbank_user),
+        ("password", &state.config.sberbank_password),
+        ("orderNumber", &payload.order_id.to_string()),
+        ("amount", &amount_cents.to_string()),
+        ("returnUrl", &payload.return_url)
+    ];
+    let client = reqwest::Client::new();
+    let res = client.post(&sber_url).form(&params).send().await...
+    */
+
+    // 3. MOCK RESPONSE (For Demo purposes without real Sber credentials)
+    // We simulate that Sberbank registered the order and returned a payment page URL
+    let mock_form_url = format!("https://3dsec.sberbank.ru/payment/merchants/test/payment_ru.html?mdOrder={}", Uuid::new_v4());
+    
+    // NOTE: In a real deploy, if credentials aren't set, this mock allows testing the UI flow.
+    let response = SberRegisterResponse {
+        order_id: Uuid::new_v4().to_string(),
+        form_url: mock_form_url, 
+    };
+
+    tracing::info!("Registered Sberbank Order for {}. Redirect: {}", payload.order_id, response.form_url);
+
+    Ok(Json(response))
 }
 
 async fn charge(
@@ -52,7 +119,7 @@ async fn charge(
         }
     }
 
-    // 2. Verify Order Exists and belongs to User
+    // 2. Verify Order
     let order = sqlx::query!(
         "SELECT id, total, status FROM orders WHERE id = $1 AND user_id = $2",
         payload.order_id,
@@ -66,18 +133,9 @@ async fn charge(
          return Err(AppError::BadRequest("Order already paid".into()));
     }
 
-    if order.total != payload.amount {
-         // Security check: ensure frontend didn't spoof the amount
-         return Err(AppError::BadRequest("Amount mismatch".into()));
-    }
-
-    // 3. Simulate Bank Transaction (Delay)
-    // In production, call Stripe/YooKassa API here
-    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-    
+    // 3. Update Order Status
     let transaction_id = format!("tx_{}", Uuid::new_v4().simple());
-
-    // 4. Update Order Status
+    
     sqlx::query!(
         "UPDATE orders SET status = 'paid', payment_id = $1, updated_at = NOW() WHERE id = $2",
         transaction_id,
@@ -86,7 +144,7 @@ async fn charge(
     .execute(&state.db)
     .await?;
 
-    // 5. Save Idempotency Record
+    // 4. Save Idempotency Record
     let response = ChargeResponse {
         success: true,
         transaction_id: transaction_id.clone(),

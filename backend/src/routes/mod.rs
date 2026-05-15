@@ -5,3 +5,4 @@ pub mod products;
 pub mod orders;
 pub mod telegram;
 pub mod payments;
+pub mod delivery;

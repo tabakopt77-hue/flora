@@ -1,0 +1,10 @@
+
+node_modules
+target
+dist
+.git
+.env
+backend/target
+backend/.env
+.DS_Store
+coverage

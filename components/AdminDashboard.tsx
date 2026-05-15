@@ -4,8 +4,8 @@ import { Users, ShoppingBag, ShieldAlert, Activity, Search, MoreVertical, Server
 import { User, Order, Product, ModerationStatus } from '../types';
 import { Button } from './Button';
 import { db } from '../services/db';
-import { apiGateway } from '../services/apiGateway';
 import { moderateProduct } from '../services/geminiService';
+import { Helmet } from 'react-helmet-async';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -55,7 +55,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if (activeTab !== 'system') return;
 
     const fetchTelemetry = async () => {
-        const data = await apiGateway.getTelemetry();
+        // Mock Telemetry Data
+        const data = {
+            gateway: { rps: Math.floor(Math.random() * 1000), active_sockets: Math.floor(Math.random() * 500) },
+            rust: { tx_per_sec: Math.floor(Math.random() * 5000), lock_contention: 'Low' },
+            python: { queue_depth: Math.floor(Math.random() * 20), gpu_load: `${Math.floor(Math.random() * 100)}%` },
+            kafka: { throughput: `${Math.floor(Math.random() * 10)}MB/s`, lag: 0 }
+        };
         setTelemetry(data);
         
         // Simulate live logs
@@ -161,8 +167,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               </div>
           ) : (
               <div className="grid grid-cols-1 gap-6">
-                  {pendingProducts.map(product => (
-                      <div key={product.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col md:flex-row">
+                  {pendingProducts.map((product, index) => (
+                      <div key={`${product.id}-${index}`} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex flex-col md:flex-row">
                           <div className="w-full md:w-48 h-48 md:h-auto bg-gray-100 relative">
                               <img src={product.image} className="w-full h-full object-cover" />
                               <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
@@ -373,6 +379,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="container mx-auto px-4 py-32 max-w-7xl animate-in fade-in">
+        <Helmet>
+            <title>Админ-панель</title>
+            <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
         <div className="flex justify-between items-center mb-8">
             <div>
                 <h2 className="font-serif text-3xl text-gray-900">Админ-панель</h2>

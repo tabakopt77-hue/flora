@@ -1,81 +1,117 @@
 
-import React from 'react';
-import { ShoppingBag, Eye } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingBag, Eye, Heart, ArrowLeftRight, ArrowUpDown, Minus, Plus, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Product } from '../types';
 import { Button } from './Button';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
   onQuickView: (product: Product) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (product: Product) => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, onQuickView, isFavorite, onToggleFavorite }) => {
+  const [quantity, setQuantity] = useState(1);
+  const [isAdded, setIsAdded] = useState(false);
   const isOutOfStock = product.stock <= 0;
 
+  const handleDecrease = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity > 1) setQuantity(q => q - 1);
+  };
+
+  const handleIncrease = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (quantity < product.stock) setQuantity(q => q + 1);
+  };
+
+  const handleAddToCartClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onAddToCart(product, quantity);
+    setQuantity(1);
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 1500);
+  };
+
   return (
-    <div className={`group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border border-sage-100 flex flex-col h-full relative ${isOutOfStock ? 'opacity-75' : ''}`}>
-      <div className="relative overflow-hidden aspect-square bg-gray-100">
-        <Link to={`/product/${product.id}`} className="block w-full h-full">
+    <div className={`group relative flex flex-col h-full bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${isOutOfStock ? 'opacity-75 grayscale-[0.2]' : ''}`}>
+      {/* Aspect Ratio Container for Image */}
+      <div className="relative w-full aspect-[4/5] bg-gray-100 overflow-hidden">
+        <Link 
+            to={`/product/${product.id}`} 
+            className="block w-full h-full"
+            onClick={(e) => {
+                e.preventDefault();
+                onQuickView(product);
+            }}
+        >
           <img 
             src={product.image} 
             alt={product.name} 
-            className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${isOutOfStock ? 'grayscale' : ''}`}
+            className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
+            loading="lazy"
           />
         </Link>
         
-        {/* Out of Stock Overlay */}
-        {isOutOfStock && (
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none z-10">
-                <span className="bg-white/90 text-rose-600 px-4 py-2 rounded-full font-bold text-sm shadow-md border border-rose-100 transform -rotate-6">
-                    Нет в наличии
-                </span>
-            </div>
+        {/* Wishlist Button - Minimalist */}
+        {onToggleFavorite && (
+            <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(product); }}
+                className={`absolute top-2 right-2 p-1.5 md:p-2 rounded-full z-20 transition-all 
+                  ${isFavorite ? 'text-rose-500 bg-white/90' : 'text-gray-400 opacity-0 group-hover:opacity-100 bg-white/50 hover:bg-white hover:text-rose-400'} 
+                  backdrop-blur-md`}
+            >
+                <Heart size={16} fill={isFavorite ? "currentColor" : "none"} className="md:w-5 md:h-5" />
+            </button>
         )}
 
-        {/* Overlay with Quick View Button */}
-        {!isOutOfStock && (
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
-            <button 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onQuickView(product); }}
-                className="bg-white/90 backdrop-blur-sm text-emerald-900 px-6 py-3 rounded-full text-sm font-medium flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-lg hover:bg-white hover:text-emerald-700 pointer-events-auto cursor-pointer"
-            >
-                <Eye size={18} />
-                Быстрый просмотр
-            </button>
-            </div>
-        )}
+        {/* Small transparent category badge in corner */}
+        <div className="absolute top-2 left-2 px-2 py-1 bg-white/90 backdrop-blur-md text-emerald-700 text-[9px] md:text-[10px] uppercase tracking-widest font-bold rounded-md shadow-sm">
+           {product.category}
+        </div>
       </div>
       
-      <div className="p-5 flex flex-col flex-1">
-        <div className="flex justify-between items-start mb-1">
-            <div className="text-xs font-medium text-emerald-600 uppercase tracking-wider">{product.category}</div>
-            {!isOutOfStock && product.stock < 5 && (
-                <span className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-full">Осталось {product.stock}</span>
-            )}
-        </div>
-        <div>
-          <Link 
-            to={`/product/${product.id}`}
-            className="font-serif text-xl font-medium text-gray-900 mb-2 group-hover:text-emerald-800 transition-colors block"
-          >
-            {product.name}
-          </Link>
-        </div>
-        <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">{product.description}</p>
+      {/* Content Area - Minimal */}
+      <div className="flex flex-col flex-1 p-2 md:p-3">
+        <span className="font-bold text-base md:text-lg text-rose-600 mb-1">{product.price.toLocaleString('ru-RU')} ₽</span>
+        <Link 
+          to={`/product/${product.id}`}
+          onClick={(e) => {
+              e.preventDefault();
+              onQuickView(product);
+          }}
+          className="font-sans text-xs md:text-sm text-gray-800 hover:text-emerald-700 transition-colors line-clamp-2 md:line-clamp-3 mb-2 flex-1 leading-snug"
+        >
+          {product.name}
+        </Link>
         
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-sage-50">
-          <span className="font-serif text-lg font-semibold text-gray-900">{product.price.toFixed(2)} ₽</span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(product); }}
-            className={`hover:bg-emerald-800 hover:text-white border-emerald-800 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={isOutOfStock}
-          >
-            {isOutOfStock ? 'Нет в наличии' : 'В корзину'}
-          </Button>
+        <div className="mt-auto">
+           {!isOutOfStock ? (
+             <button 
+               onClick={handleAddToCartClick}
+               className={`w-full py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${isAdded ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'}`}
+             >
+               {isAdded ? (
+                 <>
+                   <Check size={14} className="md:w-[16px] md:h-[16px]" />
+                   В корзине
+                 </>
+               ) : (
+                 <>
+                   <ShoppingBag size={14} className="md:w-[16px] md:h-[16px]" />
+                   В корзину
+                 </>
+               )}
+             </button>
+           ) : (
+             <div className="w-full py-1.5 md:py-2 rounded-lg bg-gray-100 text-center text-xs md:text-sm text-gray-500 font-medium">Нет в наличии</div>
+           )}
         </div>
       </div>
     </div>

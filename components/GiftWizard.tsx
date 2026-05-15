@@ -149,8 +149,8 @@ export const GiftWizard: React.FC<GiftWizardProps> = ({ isOpen, onClose, allProd
                             </div>
                             
                             <div className="space-y-4">
-                                {recommendations.map(product => (
-                                    <div key={product.id} className="flex gap-4 p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-lg transition-all bg-white group">
+                                {recommendations.map((product, index) => (
+                                    <div key={`${product.id}-${index}`} className="flex gap-4 p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-lg transition-all bg-white group">
                                         <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                                             <img src={product.image} className="w-full h-full object-cover" />
                                         </div>

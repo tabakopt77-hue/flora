@@ -9,7 +9,8 @@ edition = "2021"
 axum = { version = "0.7", features = ["multipart"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["cors", "trace", "limit"] }
+# Added "fs" feature for serving React files
+tower-http = { version = "0.5", features = ["cors", "trace", "limit", "fs"] }
 
 # Database & Cache
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "time", "chrono", "rust_decimal"] }

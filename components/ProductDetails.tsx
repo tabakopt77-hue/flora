@@ -1,18 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp, SlidersHorizontal, Share2, Check, PackageX, Radio } from 'lucide-react';
+import { ArrowLeft, Star, Truck, ShieldCheck, Heart, Sparkles, Plus, AlertCircle, ChevronDown, ChevronUp, SlidersHorizontal, Share2, Check, PackageX, Radio, ArrowLeftRight, ArrowUpDown, ZoomIn, X } from 'lucide-react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Product, UserPreferences } from '../types';
 import { Button } from './Button';
 import { getProductRecommendations } from '../services/geminiService';
+import { ReviewList } from './ReviewList';
 
 interface ProductDetailsProps {
   allProducts: Product[];
   onAddToCart: (product: Product) => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
-export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onAddToCart }) => {
+export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onAddToCart, isFavorite, onToggleFavorite }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
@@ -23,9 +26,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [errorRecs, setErrorRecs] = useState(false);
   const [isCareExpanded, setIsCareExpanded] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isShared, setIsShared] = useState(false);
   const [sortOption, setSortOption] = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
+  const [isFullscreenImage, setIsFullscreenImage] = useState(false);
+  const [zoomState, setZoomState] = useState<{ isZoomed: boolean; x: number; y: number }>({ isZoomed: false, x: 50, y: 50 });
 
   // Stock status logic
   const isOutOfStock = product ? product.stock <= 0 : false;
@@ -38,7 +42,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
 
   useEffect(() => {
     if (product) {
-      setIsFavorite(false);
       setIsShared(false);
       setSortOption('relevance');
       window.scrollTo(0, 0); // Scroll to top on product change
@@ -148,23 +151,51 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
   return (
     <div className="animate-in slide-in-from-right duration-300">
       <Helmet>
-        <title>{product.name} | Купить за {product.price} ₽ | Aura Flora</title>
-        <meta name="description" content={product.description} />
+        <title>{`${product.name || 'Товар'} | Купить за ${product.price || 0} ₽`}</title>
+        <meta name="description" content={product.description || ''} />
         <script type="application/ld+json">
           {JSON.stringify(structuredData)}
         </script>
       </Helmet>
 
-      <button onClick={() => navigate('/catalog')} className="flex items-center text-gray-700 hover:text-emerald-900 mb-6 transition-colors font-medium">
-        <ArrowLeft size={20} className="mr-2" /> Вернуться в каталог
-      </button>
+      <nav className="flex items-center text-sm text-stone-500 mb-4 md:mb-6 font-medium">
+        <Link to="/" className="hover:text-emerald-800 transition-colors">Главная</Link>
+        <span className="mx-2 text-stone-300">/</span>
+        <Link to="/catalog" className="hover:text-emerald-800 transition-colors">Каталог</Link>
+        <span className="mx-2 text-stone-300">/</span>
+        <span className="text-stone-800 truncate max-w-[200px] md:max-w-md">{product.name}</span>
+      </nav>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
-        <div className="space-y-4">
-          <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 shadow-lg relative">
-             <img src={product.image} alt={product.name} className={`w-full h-full object-cover transition-all ${isOutOfStock ? 'grayscale opacity-70' : ''}`} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 mb-8 md:mb-16 items-start">
+        <div className="space-y-4 sticky top-24 pb-8">
+          <div className="aspect-[4/5] rounded-2xl overflow-hidden bg-stone-50 shadow-lg relative group">
+             <img src={product.image} alt={product.name} className={`w-full h-full object-cover transition-all cursor-pointer md:cursor-default ${isOutOfStock ? 'grayscale opacity-70' : ''}`} onClick={() => window.innerWidth < 768 ? setIsFullscreenImage(true) : null} />
+             
+             {/* Fullscreen desktop button */}
+             <button 
+                 onClick={() => setIsFullscreenImage(true)}
+                 className="absolute top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-full text-gray-700 hover:text-emerald-700 shadow-md transform opacity-0 group-hover:opacity-100 transition-all duration-300 hidden md:flex"
+                 title="Открыть на весь экран"
+             >
+                 <ZoomIn size={20} />
+             </button>
+
+             {/* Dimensions Badge */}
+             {product.dimensions && (
+                 <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm text-gray-800 px-3 py-1.5 rounded-xl text-sm font-medium shadow-md border border-white/50 flex items-center gap-3 z-20">
+                     <span className="flex items-center gap-1.5"><ArrowLeftRight size={14} className="text-gray-400" /> {product.dimensions.width} см</span>
+                     <span className="text-gray-300">|</span>
+                     <span className="flex items-center gap-1.5"><ArrowUpDown size={14} className="text-gray-400" /> {product.dimensions.height} см</span>
+                 </div>
+             )}
+
+             {/* Watermark */}
+             <div className="absolute bottom-4 right-4 text-xs font-bold text-white/60 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] pointer-events-none z-20 select-none">
+               AURA FLORA
+             </div>
+             
              {isOutOfStock && (
-                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
                      <span className="bg-white/90 text-rose-600 px-6 py-3 rounded-full font-bold text-lg shadow-xl transform -rotate-12 border border-rose-100">
                          Нет в наличии
                      </span>
@@ -173,23 +204,63 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="aspect-square rounded-lg overflow-hidden bg-gray-100 opacity-70 hover:opacity-100 cursor-pointer transition-opacity">
+              <div key={i} className="aspect-square rounded-lg overflow-hidden bg-stone-50 opacity-70 hover:opacity-100 cursor-pointer transition-opacity">
                 <img src={product.image} alt="Thumbnail" className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`} />
               </div>
             ))}
+          </div>
+
+          <div className="pt-6 hidden md:block">
+            <div className="grid grid-cols-2 gap-4 py-6 border-t border-gray-100">
+              <div className="flex items-start gap-3">
+                <Truck className="text-emerald-700 mt-1" size={20} />
+                <div>
+                  <h4 className="font-medium text-sm text-gray-900">Доставка</h4>
+                  <p className="text-xs text-gray-500">По Москве от 300 ₽</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="text-emerald-700 mt-1" size={20} />
+                <div>
+                  <h4 className="font-medium text-sm text-gray-900">Свежесть</h4>
+                  <p className="text-xs text-gray-500">Гарантия 7 дней</p>
+                </div>
+              </div>
+            </div>
+
+            {product.careInstructions && (
+               <div className="bg-sage-50 rounded-xl overflow-hidden transition-all duration-300">
+                 <button 
+                   onClick={() => setIsCareExpanded(!isCareExpanded)}
+                   className="w-full flex items-center justify-between p-6 text-left hover:bg-sage-100 transition-colors focus:outline-none"
+                 >
+                   <h4 className="font-serif font-medium text-emerald-900">Как ухаживать</h4>
+                   {isCareExpanded ? (
+                     <ChevronUp size={20} className="text-emerald-800" />
+                   ) : (
+                     <ChevronDown size={20} className="text-emerald-800" />
+                   )}
+                 </button>
+                 {isCareExpanded && (
+                   <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
+                     <p className="text-sm text-gray-600 leading-relaxed">{product.careInstructions}</p>
+                   </div>
+                 )}
+               </div>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-emerald-600 font-medium text-sm uppercase tracking-wider mb-2">{product.category}</p>
+              <p className="text-emerald-600 font-medium text-xs uppercase tracking-wider mb-2">{product.category}</p>
               <h1 className="font-serif text-4xl md:text-5xl text-gray-900 mb-4">{product.name}</h1>
             </div>
             <div className="flex gap-2">
                 <button 
                   onClick={handleShare}
-                  className={`p-3 rounded-full transition-colors relative group ${isShared ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-800'}`}
+                  className={`p-3 rounded-full transition-colors relative group ${isShared ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-50 text-stone-500 hover:bg-stone-100 hover:text-stone-800'}`}
                   title="Поделиться"
                 >
                   {isShared ? <Check size={24} /> : <Share2 size={24} />}
@@ -200,7 +271,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                   )}
                 </button>
                 <button 
-                  onClick={() => setIsFavorite(!isFavorite)}
+                  onClick={onToggleFavorite}
                   className={`p-3 rounded-full transition-colors ${isFavorite ? 'bg-rose-100 text-rose-600' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'}`}
                 >
                   <Heart size={24} fill={isFavorite ? "currentColor" : "none"} />
@@ -212,7 +283,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
             <div className="flex text-yellow-400">
               {[...Array(5)].map((_, i) => <Star key={i} size={16} fill={i < Math.floor(product.rating || 0) ? "currentColor" : "none"} />)}
             </div>
-            <span className="text-gray-500 text-sm">{product.reviews} отзывов</span>
+            <span className="text-stone-500 text-sm">{product.reviews} отзывов</span>
             {isLowStock && (
                 <span className="text-rose-600 text-sm font-medium bg-rose-50 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <AlertCircle size={12} /> Осталось всего {product.stock} шт.
@@ -226,7 +297,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
             )}
           </div>
 
-          <p className="text-2xl font-serif text-gray-900 mb-6">{product.price.toFixed(2)} ₽</p>
+          <p className="text-3xl font-serif text-stone-900 mb-6">{product.price.toLocaleString('ru-RU')} ₽</p>
 
           <div className="prose prose-stone text-gray-600 mb-8">
             <p>{product.longDescription || product.description}</p>
@@ -234,7 +305,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
 
           <div className="space-y-6 mb-8">
             {isOutOfStock ? (
-                <div className="w-full py-4 text-lg bg-gray-100 text-gray-400 rounded-full font-medium text-center cursor-not-allowed flex items-center justify-center gap-2">
+                <div className="w-full py-4 text-lg bg-stone-100 text-stone-400 rounded-full font-medium text-center cursor-not-allowed flex items-center justify-center gap-2">
                     <PackageX size={20} />
                     Товар закончился
                 </div>
@@ -243,10 +314,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                   Добавить в корзину
                 </Button>
             )}
-            <p className="text-xs text-center text-gray-500">Бесплатная доставка при заказе от 10 000 ₽</p>
+            <p className="text-xs text-center text-stone-400">Бесплатная доставка при заказе от 10 000 ₽</p>
           </div>
 
-          {/* AI Recommendations Section */}
+           {/* AI Recommendations Section */}
           <div className={`mb-8 p-6 bg-gradient-to-br from-emerald-50 to-white border ${errorRecs ? 'border-rose-100' : 'border-emerald-100'} rounded-2xl relative overflow-hidden transition-colors`}>
              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-50"></div>
              
@@ -333,8 +404,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                </div>
              ) : (
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                 {displayRecs.length > 0 ? displayRecs.map(rec => (
-                   <Link to={`/product/${rec.id}`} key={rec.id} className={`flex gap-3 bg-white p-3 rounded-xl shadow-sm border ${errorRecs ? 'border-gray-200 hover:border-gray-300' : 'border-emerald-50 hover:border-emerald-200'} transition-colors cursor-pointer group`}>
+                 {displayRecs.length > 0 ? displayRecs.map((rec, i) => (
+                   <Link to={`/product/${rec.id}`} key={`${rec.id}-${i}`} className={`flex gap-3 bg-white p-3 rounded-xl shadow-sm border ${errorRecs ? 'border-gray-200 hover:border-gray-300' : 'border-emerald-50 hover:border-emerald-200'} transition-colors cursor-pointer group`}>
                       <img src={rec.image} alt={rec.name} className="w-20 h-20 rounded-lg object-cover" />
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                          <h4 className="font-medium text-gray-900 text-sm truncate group-hover:text-emerald-800 transition-colors">{rec.name}</h4>
@@ -354,7 +425,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
                            </div>
                          )}
                          <div className="mt-auto flex items-center justify-between pt-2">
-                             <p className="text-gray-500 text-xs font-medium">{rec.price.toFixed(2)} ₽</p>
+                             <p className="text-stone-600 text-sm font-medium">{rec.price.toLocaleString('ru-RU')} ₽</p>
                              <button 
                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToCart(rec); }}
                                className={`text-xs font-medium text-white px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 shadow-sm ${errorRecs ? 'bg-gray-700 hover:bg-gray-800' : 'bg-emerald-700 hover:bg-emerald-800'}`}
@@ -373,45 +444,93 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
              )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 py-6 border-t border-gray-100">
-            <div className="flex items-start gap-3">
-              <Truck className="text-emerald-700 mt-1" size={20} />
-              <div>
-                <h4 className="font-medium text-sm text-gray-900">Доставка</h4>
-                <p className="text-xs text-gray-500">Уже завтра у вас</p>
+          <div className="md:hidden">
+            <div className="grid grid-cols-2 gap-4 py-6 border-t border-gray-100">
+              <div className="flex items-start gap-3">
+                <Truck className="text-emerald-700 mt-1" size={20} />
+                <div>
+                  <h4 className="font-medium text-sm text-gray-900">Доставка</h4>
+                  <p className="text-xs text-gray-500">По Москве от 300 ₽</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="text-emerald-700 mt-1" size={20} />
+                <div>
+                  <h4 className="font-medium text-sm text-gray-900">Свежесть</h4>
+                  <p className="text-xs text-gray-500">Гарантия 7 дней</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="text-emerald-700 mt-1" size={20} />
-              <div>
-                <h4 className="font-medium text-sm text-gray-900">Свежесть</h4>
-                <p className="text-xs text-gray-500">Гарантия 7 дней</p>
-              </div>
-            </div>
-          </div>
 
-          {product.careInstructions && (
-             <div className="bg-sage-50 rounded-xl mt-4 overflow-hidden transition-all duration-300">
-               <button 
-                 onClick={() => setIsCareExpanded(!isCareExpanded)}
-                 className="w-full flex items-center justify-between p-6 text-left hover:bg-sage-100 transition-colors focus:outline-none"
-               >
-                 <h4 className="font-serif font-medium text-emerald-900">Как ухаживать</h4>
-                 {isCareExpanded ? (
-                   <ChevronUp size={20} className="text-emerald-800" />
-                 ) : (
-                   <ChevronDown size={20} className="text-emerald-800" />
+            {product.careInstructions && (
+               <div className="bg-sage-50 rounded-xl mt-4 overflow-hidden transition-all duration-300">
+                 <button 
+                   onClick={() => setIsCareExpanded(!isCareExpanded)}
+                   className="w-full flex items-center justify-between p-6 text-left hover:bg-sage-100 transition-colors focus:outline-none"
+                 >
+                   <h4 className="font-serif font-medium text-emerald-900">Как ухаживать</h4>
+                   {isCareExpanded ? (
+                     <ChevronUp size={20} className="text-emerald-800" />
+                   ) : (
+                     <ChevronDown size={20} className="text-emerald-800" />
+                   )}
+                 </button>
+                 {isCareExpanded && (
+                   <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
+                     <p className="text-sm text-gray-600 leading-relaxed">{product.careInstructions}</p>
+                   </div>
                  )}
-               </button>
-               {isCareExpanded && (
-                 <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
-                   <p className="text-sm text-gray-600 leading-relaxed">{product.careInstructions}</p>
-                 </div>
-               )}
-             </div>
-          )}
+               </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Reviews Section Integration - full width */}
+      <div className="mt-8 pt-8 border-t border-gray-100">
+         <ReviewList product={product} />
+      </div>
+
+      {/* Fullscreen Image Overlay */}
+      {isFullscreenImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300 overflow-hidden"
+          onClick={() => {
+              if (zoomState.isZoomed) {
+                  setZoomState(prev => ({ ...prev, isZoomed: false }));
+              } else {
+                  setIsFullscreenImage(false);
+              }
+          }}
+        >
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            onClick={(e) => {
+                e.stopPropagation();
+                if (!zoomState.isZoomed) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                    setZoomState({ isZoomed: true, x, y });
+                } else {
+                    setZoomState(prev => ({ ...prev, isZoomed: false }));
+                }
+            }}
+            style={{
+                transform: zoomState.isZoomed ? 'scale(2.5)' : 'scale(1)',
+                transformOrigin: `${zoomState.x}% ${zoomState.y}%`
+            }}
+            className={`max-w-full max-h-full object-contain select-none transition-transform duration-300 animate-in zoom-in-95 ${zoomState.isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} 
+          />
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsFullscreenImage(false); }}
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors z-10"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

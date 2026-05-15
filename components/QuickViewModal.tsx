@@ -38,12 +38,13 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
         </button>
 
         {/* Image Section */}
-        <div className="w-full md:w-1/2 bg-gray-100 h-64 md:h-auto relative">
+        <div className="w-full md:w-1/2 bg-stone-50 h-64 md:h-auto relative">
            <img 
              src={product.image} 
              alt={product.name} 
              className="w-full h-full object-cover"
            />
+
         </div>
 
         {/* Info Section */}
@@ -59,39 +60,40 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
                )}
              </div>
              
-             <h2 className="font-serif text-3xl text-gray-900 mb-2">{product.name}</h2>
-             <p className="text-2xl font-medium text-emerald-900 mb-6">{product.price.toFixed(2)} ₽</p>
+             <h2 className="font-serif text-3xl text-stone-900 mb-2">{product.name}</h2>
+             <p className="text-3xl font-serif text-stone-900 mb-6">{product.price.toLocaleString('ru-RU')} ₽</p>
              
-             <div className="prose prose-sm text-gray-500 mb-6 leading-relaxed">
+             <div className="prose prose-sm text-stone-500 mb-6 leading-relaxed">
                <p>{product.description}</p>
              </div>
 
              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-stone-600">
                   <Check size={16} className="text-emerald-500" />
                   <span>В наличии, готов к отправке</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-stone-600">
                   <Check size={16} className="text-emerald-500" />
                   <span>Бесплатная открытка</span>
                 </div>
              </div>
            </div>
 
-           <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-3">
+           <div className="mt-8 pt-6 border-t border-stone-100 grid grid-cols-1 md:grid-cols-2 gap-4">
              <Button 
                size="lg" 
-               className="w-full justify-center"
+               className="w-full justify-center text-sm"
                onClick={() => { onAddToCart(product); onClose(); }}
              >
                Добавить в корзину
              </Button>
              <Button 
-               variant="ghost" 
-               className="w-full justify-center"
+               variant="outline" 
+               size="lg"
+               className="w-full justify-center text-sm"
                onClick={() => { onGoToDetails(product); onClose(); }}
              >
-               Подробнее о товаре <ArrowRight size={16} className="ml-2" />
+               Открыть полностью
              </Button>
            </div>
         </div>

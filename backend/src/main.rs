@@ -12,6 +12,7 @@ use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tower_http::cors::{CorsLayer, Any};
+use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use qdrant_client::prelude::*;
 use crate::app_state::AppState;
@@ -57,11 +58,14 @@ async fn main() {
     // Ensure Qdrant Collection Exists (for RAG)
     services::rag::ensure_collection(&state).await;
 
-    // Run Migrations
+    // Run Migrations (Robust startup)
     sqlx::migrate!("./migrations")
         .run(&state.db)
         .await
         .expect("Failed to run migrations");
+
+    // Static Files Directory (Frontend)
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./dist".to_string());
 
     // Routes
     let app = Router::new()
@@ -74,6 +78,9 @@ async fn main() {
         .nest("/api/v1/products", routes::products::routes())
         .nest("/api/v1/orders", routes::orders::routes())
         .nest("/api/v1/payments", routes::payments::routes())
+        .nest("/api/v1/delivery", routes::delivery::routes())
+        // Serve Frontend Static Files
+        .nest_service("/", ServeDir::new(static_dir).fallback(ServeDir::new("./dist/index.html"))) // SPA Fallback
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .with_state(state);
 

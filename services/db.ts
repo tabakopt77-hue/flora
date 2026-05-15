@@ -7,7 +7,8 @@ const KEYS = {
   PRODUCTS: 'bloom_products',
   ORDERS: 'bloom_orders',
   CART: 'bloom_cart',
-  USERS: 'bloom_users'
+  USERS: 'bloom_users',
+  WISHLIST: 'bloom_wishlist'
 };
 
 // Helper for safe parsing
@@ -67,5 +68,18 @@ export const db = {
     get: (): CartItem[] => get(KEYS.CART, []),
     save: (cart: CartItem[]) => set(KEYS.CART, cart),
     clear: () => set(KEYS.CART, [])
+  },
+  wishlist: {
+    get: (): string[] => get(KEYS.WISHLIST, []),
+    toggle: (productId: string): string[] => {
+      let list = get<string[]>(KEYS.WISHLIST, []);
+      if (list.includes(productId)) {
+        list = list.filter(id => id !== productId);
+      } else {
+        list.push(productId);
+      }
+      set(KEYS.WISHLIST, list);
+      return list;
+    }
   }
 };

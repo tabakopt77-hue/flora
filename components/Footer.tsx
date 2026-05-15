@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Send, Facebook, MapPin, Mail, Phone } from 'lucide-react';
+import { MapPin, Mail, Phone } from 'lucide-react';
+import { FaTelegramPlane, FaWhatsapp, FaVk } from 'react-icons/fa';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-emerald-950 text-emerald-100/80 pt-16 pb-8 border-t border-emerald-900">
+    <footer className="bg-emerald-950 text-emerald-100/80 pt-10 md:pt-16 pb-6 md:pb-8 border-t border-emerald-900">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 mb-8 md:mb-12">
           
           {/* Brand */}
           <div className="space-y-4">
@@ -16,9 +17,9 @@ export const Footer: React.FC = () => {
               Маркетплейс авторской флористики, объединяющий технологии ИИ и искусство живых цветов. Доставляем эмоции с 2024 года.
             </p>
             <div className="flex gap-4 pt-2">
-               <a href="#" className="hover:text-white transition-colors"><Instagram size={20} /></a>
-               <a href="#" className="hover:text-white transition-colors"><Send size={20} /></a>
-               <a href="#" className="hover:text-white transition-colors"><Facebook size={20} /></a>
+               <a href="#" className="hover:text-white transition-colors p-2 bg-emerald-900 rounded-full"><FaTelegramPlane size={18} /></a>
+               <a href="#" className="hover:text-white transition-colors p-2 bg-emerald-900 rounded-full"><FaWhatsapp size={18} /></a>
+               <a href="#" className="hover:text-white transition-colors p-2 bg-emerald-900 rounded-full"><FaVk size={18} /></a>
             </div>
           </div>
 
@@ -65,7 +66,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="border-t border-emerald-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs opacity-60">
+        <div className="border-t border-emerald-900 pt-6 md:pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs opacity-60">
           <p>© 2024 Aura Flora. Все права защищены.</p>
           <div className="flex gap-6">
              <span>ИНН 7700000000</span>

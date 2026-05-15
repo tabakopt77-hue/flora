@@ -1,7 +1,12 @@
 
+import { GoogleGenAI, Type } from "@google/genai";
 import { Product, UserPreferences, ChatMessage, PriceAnalysis, DemandForecast, Category, AIVerdict } from "../types";
 import { db } from "./db";
-import { apiGateway } from "./apiGateway";
+
+// Initialize Gemini API
+// Note: In a real production app, you might want to proxy this through a backend to hide the API key,
+// but for this client-side demo, we use the environment variable directly.
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const cleanAndParseJson = (text: string | undefined) => {
   if (!text) return null;
@@ -17,7 +22,7 @@ const cleanAndParseJson = (text: string | undefined) => {
 // --- RAG SYSTEM: KNOWLEDGE BASE ---
 
 const KNOWLEDGE_BASE = {
-  shipping: "Доставка осуществляется по Москве и МО. Бесплатно от 10 000 руб. Стандартная доставка: 500 руб. Срочная доставка за 2 часа: 1500 руб. Интервалы доставки: 10-14, 14-18, 18-22.",
+  shipping: "Доставка осуществляется по Москве: Пешим курьером Достависта (400 руб), Экспресс на такси по тарифу Яндекс (800 руб), и курьером Aura Flora (300 руб). Бесплатная стандартная доставка при заказе от 10 000 руб. С SafeRoute больше не сотрудничаем. Интервалы доставки: 10-14, 14-18, 18-22.",
   care: "Общие правила ухода: Подрезайте стебли под углом 45 градусов. Используйте чистую прохладную воду. Меняйте воду раз в 2 дня. Не ставьте цветы на сквозняке, у батарей или под прямые солнечные лучи.",
   returns: "Цветы являются товаром надлежащего качества, не подлежащим возврату (Постановление РФ №55). Однако, если букет приехал вялым, мы заменим его в течение 24 часов. пришлите фото в течение часа после получения.",
   about: "Aura Flora — премиальный цветочный маркетплейс, объединяющий лучших флористов. Мы используем ИИ для проверки качества каждого букета перед отправкой."
@@ -51,7 +56,7 @@ const retrieveRAGContext = (query: string): string => {
 
 // --- CHAT WITH HISTORY & RAG ---
 
-export const getFloristChatResponse = async (history: ChatMessage[], newMessage: string): Promise<string> => {
+export const getFloristChatResponse = async (history: ChatMessage[], newMessage: string, newImage?: string, creativity: number = 5): Promise<string> => {
   try {
     // 1. RETRIEVE CONTEXT (RAG STEP)
     const contextData = retrieveRAGContext(newMessage);
@@ -60,34 +65,71 @@ export const getFloristChatResponse = async (history: ChatMessage[], newMessage:
     const systemInstruction = `
       Ты — "Flora", ИИ-ассистент бутика "Aura Flora".
       
+      ГЛАВНАЯ ДИРЕКТИВА:
+      Ты общаешься ИСКЛЮЧИТЕЛЬНО на тему цветов, букетов, подарков, оформления и ухода за растениями.
+      Если пользователь задает вопрос не по теме (политика, погода, новости, личные вопросы и т.д.), ты вежливо, но твердо отказываешься отвечать и переводишь тему обратно на цветы.
+      
+      Пример отказа: "Извините, но я разбираюсь только в цветах и красоте. Давайте лучше подберем букет для вашей мамы?"
+      
       ИНСТРУКЦИИ БЕЗОПАСНОСТИ И БИЗНЕС-ЛОГИКА:
       1. Используй только предоставленную в Context информацию. Не выдумывай условия доставки.
       2. Если товара нет в каталоге ниже, вежливо скажи, что его сейчас нет или он закончился.
-      3. Твой тон: Экспертный, эмпатичный, лаконичный.
+      3. Твой тон: Экспертный, эмпатичный, лаконичный, "цветочный".
       4. Для рекомендации товара ВСЕГДА используй формат: :::PRODUCT:ID_ТОВАРА:::
       5. Если товара мало (из контекста не видно, но предполагай), предложи альтернативу.
+      6. Активно предлагай оформить заказ, спрашивай о поводе и предпочтениях.
+      7. Если пользователь прикрепил фото, проанализируй его и предложи похожие товары из базы или прокомментируй цветы на фото.
 
       ${contextData}
     `;
 
-    const messages = [
-        { role: 'user', parts: [{ text: systemInstruction }] },
-        ...history
-            .filter(msg => !msg.isError)
-            .map(msg => ({
+    const contents = history
+        .filter(msg => !msg.isError)
+        .map(msg => {
+            const parts: any[] = [];
+            if (msg.image) {
+                const match = msg.image.match(/^data:(image\/\w+);base64,(.*)$/);
+                if (match) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: match[1],
+                            data: match[2]
+                        }
+                    });
+                }
+            }
+            parts.push({ text: msg.text || " " });
+            return {
                 role: msg.role === 'model' ? 'model' : 'user',
-                parts: [{ text: msg.text }]
-            })),
-        { role: 'user', parts: [{ text: newMessage }] }
-    ];
+                parts: parts
+            };
+        });
 
-    const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
-
-    if (response.status === 200 && response.data) {
-        return response.data.text;
+    const newUserParts: any[] = [];
+    if (newImage) {
+        const match = newImage.match(/^data:(image\/\w+);base64,(.*)$/);
+        if (match) {
+            newUserParts.push({
+                inlineData: {
+                    mimeType: match[1],
+                    data: match[2]
+                }
+            });
+        }
     }
-    
-    return "Извините, сейчас я не могу ответить. Попробуйте позже.";
+    newUserParts.push({ text: newMessage || " " });
+    contents.push({ role: 'user', parts: newUserParts });
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: {
+            systemInstruction: systemInstruction,
+            temperature: creativity / 10, // creativity comes in as 1-10
+        }
+    });
+
+    return response.text || "Извините, сейчас я не могу ответить. Попробуйте позже.";
   } catch (error) {
     console.error("AI Chat Error:", error);
     return "Прошу прощения, сейчас я не могу продолжить диалог. Попробуйте чуть позже.";
@@ -114,25 +156,29 @@ export const analyzePrice = async (productName: string, currentPrice: number, ca
         2. Оцени среднюю цену по рынку (marketAverage).
         3. Дай уверенность в прогнозе (confidence 0-100).
         4. Напиши обоснование (reasoning).
-
-        ВЕРНИ ТОЛЬКО JSON:
-        {
-            "suggestedPrice": number,
-            "marketAverage": number,
-            "confidence": number,
-            "competitorCount": number,
-            "reasoning": "Краткое объяснение (макс 20 слов)"
-        }
         `;
 
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        suggestedPrice: { type: Type.NUMBER },
+                        marketAverage: { type: Type.NUMBER },
+                        confidence: { type: Type.NUMBER },
+                        competitorCount: { type: Type.NUMBER },
+                        reasoning: { type: Type.STRING }
+                    }
+                }
+            }
+        });
 
-        if (response.status === 200 && response.data) {
-            return cleanAndParseJson(response.data.text);
-        }
-        return null;
+        return cleanAndParseJson(response.text);
     } catch (e) {
+        console.error("Price Analysis Error:", e);
         return null;
     }
 };
@@ -149,47 +195,63 @@ export const getSeasonalForecast = async (category: string): Promise<DemandForec
 
         ЗАДАЧА:
         Спрогнозируй спрос на следующий месяц.
-        
-        ВЕРНИ ТОЛЬКО JSON:
-        {
-            "period": "${nextMonth}",
-            "trend": "rising" | "falling" | "stable",
-            "predictedSalesGrowth": number (процент роста/падения, например 15),
-            "topKeywords": ["цветок1", "цветок2", "цвет"],
-            "actionableTips": ["Совет 1 (коротко)", "Совет 2"]
-        }
         `;
 
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        period: { type: Type.STRING },
+                        trend: { type: Type.STRING, enum: ["rising", "falling", "stable"] },
+                        predictedSalesGrowth: { type: Type.NUMBER },
+                        topKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        actionableTips: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                }
+            }
+        });
 
-        if (response.status === 200 && response.data) {
-            return cleanAndParseJson(response.data.text);
-        }
-        return null;
+        return cleanAndParseJson(response.text);
     } catch (e) {
+        console.error("Forecast Error:", e);
         return null;
     }
 };
 
-export const generateProductDescription = async (productName: string, keywords: string): Promise<string> => {
+export const generateProductDescription = async (productName: string, keywords: string) => {
     try {
         const prompt = `Ты — эксперт по продажам на цветочном маркетплейсе. 
         Напиши продающее описание для товара.
-        Название: ${productName}
-        Ключевые слова: ${keywords}
-        Объем: 2-3 предложения. Эмоционально.
-        `;
-
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        Название: "${productName}"
+        Ключевые слова: "${keywords}"
         
-        if (response.status === 200 && response.data) {
-            return response.data.text;
-        }
-        return "Не удалось сгенерировать описание.";
+        Верни JSON с двумя полями:
+        - short: Краткое описание (2-3 предложения, эмоционально, интригующе)
+        - long: Длинное описание (для карточки товара, с подробностями, атмосферой и плюсами)`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        short: { type: Type.STRING },
+                        long: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        
+        return cleanAndParseJson(response.text);
     } catch (error) {
-        return "Не удалось сгенерировать описание.";
+        console.error("Description Gen Error:", error);
+        return null;
     }
 };
 
@@ -211,25 +273,28 @@ export const moderateProduct = async (product: Product): Promise<AIVerdict> => {
         1. Безопасность: Нет ли запрещенных товаров, насилия, 18+?
         2. Качество: Достаточно ли хорошее описание? Соответствует ли флористике?
         3. Соответствие: Это точно цветы или подарки?
-
-        ВЕРНИ JSON:
-        {
-            "isSafe": boolean,
-            "qualityScore": number (0-100),
-            "tags": ["тег1", "тег2"],
-            "reason": "Вердикт одним предложением",
-            "flaggedIssues": ["проблема1"] (если есть, иначе пустой массив)
-        }
         `;
 
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        isSafe: { type: Type.BOOLEAN },
+                        qualityScore: { type: Type.NUMBER },
+                        tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        reason: { type: Type.STRING },
+                        flaggedIssues: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                }
+            }
+        });
 
-        if (response.status === 200 && response.data) {
-            const verdict = cleanAndParseJson(response.data.text);
-            return verdict || { isSafe: true, qualityScore: 80, tags: [], reason: "AI Moderation Error", flaggedIssues: [] };
-        }
-        throw new Error("API Error");
+        const verdict = cleanAndParseJson(response.text);
+        return verdict || { isSafe: true, qualityScore: 80, tags: [], reason: "AI Moderation Error", flaggedIssues: [] };
     } catch (e) {
         // Fallback for demo stability
         return { isSafe: true, qualityScore: 85, tags: ["auto-approved"], reason: "Сбой AI, авто-одобрение", flaggedIssues: [] };
@@ -241,10 +306,11 @@ export const moderateProduct = async (product: Product): Promise<AIVerdict> => {
 export const generateGiftMessage = async (occasion: string, recipient: string, tone: string): Promise<string> => {
     try {
         const prompt = `Напиши текст для открытки. Повод: ${occasion}. Кому: ${recipient}. Тон: ${tone}. Макс 30 слов. Без клише.`;
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
-        if (response.status === 200 && response.data) return response.data.text.replace(/"/g, '');
-        return "С наилучшими пожеланиями!";
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt
+        });
+        return response.text?.replace(/"/g, '') || "С наилучшими пожеланиями!";
     } catch (error) { return "С любовью и теплотой."; }
 };
 
@@ -259,14 +325,27 @@ export const getGiftRecommendations = async (recipient: string, budget: string, 
         Подбери 3 букета для подарка.
         Кому: ${recipient}. Бюджет: ${budget}.
         Список: ${productList}
-        Верни JSON: [{ "id": "...", "reason": "..." }]
         `;
 
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            id: { type: Type.STRING },
+                            reason: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        });
 
-        if (response.status === 200 && response.data) return cleanAndParseJson(response.data.text) || [];
-        return [];
+        return cleanAndParseJson(response.text) || [];
     } catch (e) { return []; }
 };
 
@@ -276,33 +355,82 @@ export const getProductRecommendations = async (currentProduct: Product, availab
         const prompt = `
         Подбери 3 товара-компаньона для "${currentProduct.name}".
         Стиль пользователя: ${userContext.preferredStyle.join(', ')}.
-        Верни JSON: [{ "id": "...", "reason": "..." }]
         Список: ${productList}
         `;
 
-        const messages = [{ role: 'user', parts: [{ text: prompt }] }];
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/chat', { messages });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            id: { type: Type.STRING },
+                            reason: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        });
 
-        if (response.status === 200 && response.data) return cleanAndParseJson(response.data.text) || [];
-        return [];
+        return cleanAndParseJson(response.text) || [];
     } catch (error) { return []; }
+};
+
+
+export const summarizeReviews = async (reviewsText: string): Promise<string> => {
+    try {
+        const prompt = `
+            Проанализируй отзывы покупателей о букете.
+            Отзывы: "${reviewsText}"
+            
+            Напиши краткую выжимку (макс 30 слов).
+            Формат: "Плюсы: ... Минусы: ..."
+            Будь честным и объективным.
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt
+        });
+        
+        return response.text || "Не удалось создать резюме.";
+    } catch (e) {
+        return "Не удалось создать резюме.";
+    }
 };
 
 export const identifyPlantFromImage = async (base64Data: string, mimeType: string): Promise<{ name: string; searchTerm: string } | null> => {
     try {
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) { byteNumbers[i] = byteCharacters.charCodeAt(i); }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
+        const prompt = `Identify plant. Return JSON: { "name": "...", "searchTerm": "..." }`;
 
-        const formData = new FormData();
-        formData.append("image", blob, "image.jpg");
-        formData.append("prompt", `Identify plant. Return JSON: { "name": "...", "searchTerm": "..." }`);
-
-        const response = await apiGateway.request<{ text: string }>('ai', '/ai/vision', formData);
         
-        if (response.status === 200 && response.data) return cleanAndParseJson(response.data.text);
-        return null;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+                {
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data
+                    }
+                },
+                { text: prompt }
+            ],
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        searchTerm: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        
+        return cleanAndParseJson(response.text);
     } catch (error) { return null; }
 }

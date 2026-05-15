@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /checkout
+Disallow: /admin
+Disallow: /profile
+Disallow: /seller/dashboard
+
+Sitemap: https://auraflora.ru/sitemap.xml

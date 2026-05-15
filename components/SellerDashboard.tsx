@@ -4,12 +4,14 @@ import {
     LayoutDashboard, Package, ShoppingCart, Users, Settings, 
     LogOut, Plus, Search, Filter, MoreVertical, ChevronRight,
     TrendingUp, ArrowUpRight, DollarSign, Clock, CheckCircle, Truck, Edit, Trash2, X, Image as ImageIcon, Sparkles,
-    BarChart2, Zap, ArrowDown, Target
+    BarChart2, Zap, ArrowDown, Target, Link as LinkIcon, DownloadCloud, Check
 } from 'lucide-react';
 import { Product, Category, Order, OrderStatus, User, PriceAnalysis, DemandForecast } from '../types';
 import { Button } from './Button';
 import { generateProductDescription, analyzePrice, getSeasonalForecast } from '../services/geminiService';
 import { ToastMessage } from './Toast';
+import { SellerAIAssistant } from './SellerAIAssistant';
+import { Helmet } from 'react-helmet-async';
 
 interface SellerDashboardProps {
     onLogout: () => void;
@@ -26,11 +28,18 @@ interface SellerDashboardProps {
 export const SellerDashboard: React.FC<SellerDashboardProps> = ({ 
     onLogout, products, onAddProduct, onUpdateProduct, onDeleteProduct, orders, onUpdateOrderStatus, user, addToast
 }) => {
-    const [currentView, setCurrentView] = useState<'dashboard' | 'products' | 'orders' | 'customers' | 'analytics'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'products' | 'orders' | 'customers' | 'analytics' | 'integrations'>('dashboard');
     
     // --- State for Products View ---
     const [productSearch, setProductSearch] = useState('');
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // --- State for Integrations View ---
+    const [isIntegrationModalOpen, setIsIntegrationModalOpen] = useState(false);
+    const [integrationPlatform, setIntegrationPlatform] = useState<'ozon' | 'yandex' | null>(null);
+    const [integrationApiKey, setIntegrationApiKey] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+    const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
 
     // --- State for Product Modal ---
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -39,9 +48,16 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     const [prodStock, setProdStock] = useState('10'); // Default stock
     const [prodKeywords, setProdKeywords] = useState('');
     const [prodDesc, setProdDesc] = useState('');
+    const [prodLongDesc, setProdLongDesc] = useState('');
     const [prodCategory, setProdCategory] = useState<Category>(Category.BOUQUETS);
     const [prodImage, setProdImage] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+
+    const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // --- State for Seller AI Assistant ---
+    const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
     // --- State for Analytics ---
     const [priceAnalysis, setPriceAnalysis] = useState<PriceAnalysis | null>(null);
@@ -62,6 +78,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             setProdStock(product.stock.toString());
             setProdKeywords(product.tags.join(', '));
             setProdDesc(product.description);
+            setProdLongDesc(product.longDescription || '');
             setProdCategory(product.category);
             setProdImage(product.image);
         } else {
@@ -71,6 +88,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             setProdStock('10');
             setProdKeywords('');
             setProdDesc('');
+            setProdLongDesc('');
             setProdCategory(Category.BOUQUETS);
             setProdImage('');
         }
@@ -78,12 +96,36 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
     };
 
     const handleGenerateDescription = async () => {
-        if (!prodName) return;
+        if (!prodName) {
+            addToast('error', 'Сначала введите название');
+            return;
+        }
         setIsGenerating(true);
-        const desc = await generateProductDescription(prodName, prodKeywords);
-        setProdDesc(desc);
+        const result = await generateProductDescription(prodName, prodKeywords);
+        if (result && typeof result === 'object') {
+            setProdDesc(result.short || '');
+            setProdLongDesc(result.long || '');
+        } else if (typeof result === 'string') {
+            setProdDesc(result);
+        }
         setIsGenerating(false);
     };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProdImage(reader.result as string);
+                setIsImagePickerOpen(false);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const existingImages = React.useMemo(() => {
+        return Array.from(new Set(products.map(p => p.image).filter(Boolean)));
+    }, [products]);
 
     const handleAnalyzePrice = async (product: Product) => {
         setAnalyzingProduct(product.id);
@@ -118,7 +160,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         }
 
         const productData: Product = {
-            id: editingProduct ? editingProduct.id : `new-${Date.now()}`,
+            id: editingProduct ? editingProduct.id : `new-${crypto.randomUUID()}`,
             name: prodName,
             price: parseFloat(prodPrice),
             stock: parseInt(prodStock) || 0,
@@ -127,6 +169,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
             category: prodCategory,
             image: prodImage || 'https://images.unsplash.com/photo-1595231916356-a86217eff12b?q=80&w=800&auto=format&fit=crop',
             description: prodDesc || 'Авторская композиция',
+            longDescription: prodLongDesc,
             tags: prodKeywords.split(',').map(s => s.trim()).filter(Boolean),
             reviews: editingProduct ? editingProduct.reviews : 0,
             rating: editingProduct ? editingProduct.rating : 5.0
@@ -227,8 +270,8 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {filteredProducts.map(product => (
-                            <tr key={product.id} className="hover:bg-gray-50/50">
+                        {filteredProducts.map((product, index) => (
+                            <tr key={`${product.id}-${index}`} className="hover:bg-gray-50/50">
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
                                         <img src={product.image} className="w-10 h-10 rounded-lg object-cover bg-gray-100" alt="" />
@@ -331,32 +374,52 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                     {/* Active Analysis Result */}
                     {priceAnalysis && (
-                        <div className="col-span-full bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-4 flex flex-col md:flex-row gap-6 animate-in slide-in-from-top-2">
-                             <div className="flex-1">
-                                 <h4 className="font-bold text-emerald-900 mb-2">Анализ завершен</h4>
-                                 <p className="text-sm text-emerald-800 mb-4">{priceAnalysis.reasoning}</p>
-                                 <div className="flex gap-4 text-sm">
-                                     <div>
-                                         <span className="block text-emerald-600 text-xs">Рыночная цена</span>
-                                         <span className="font-bold text-gray-900">{priceAnalysis.marketAverage} ₽</span>
+                        <div className="col-span-full border border-emerald-200 bg-white rounded-2xl shadow-lg p-6 mb-4 flex flex-col lg:flex-row gap-8 animate-in slide-in-from-top-4">
+                             <div className="flex-1 space-y-6">
+                                 <div className="flex items-center gap-3">
+                                     <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Sparkles size={20} /></div>
+                                     <h4 className="font-bold text-gray-900 text-xl">Результаты анализа</h4>
+                                 </div>
+                                 
+                                 <div className="grid grid-cols-2 gap-4">
+                                     <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                                         <span className="block text-gray-500 text-xs font-medium uppercase tracking-wider mb-1">Рыночная цена</span>
+                                         <span className="font-bold text-gray-900 text-2xl">{priceAnalysis.marketAverage} ₽</span>
                                      </div>
-                                     <div>
-                                         <span className="block text-emerald-600 text-xs">Рекомендуем</span>
-                                         <span className="font-bold text-emerald-700 text-lg">{priceAnalysis.suggestedPrice} ₽</span>
+                                     <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                                         <span className="block text-emerald-600 text-xs font-medium uppercase tracking-wider mb-1">Оптимальная цена</span>
+                                         <span className="font-bold text-emerald-700 text-2xl flex items-center gap-2">
+                                             {priceAnalysis.suggestedPrice} ₽ 
+                                             <ArrowUpRight size={16} className="text-emerald-500" />
+                                         </span>
                                      </div>
+                                 </div>
+
+                                 <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                                     <h5 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Обоснование ИИ</h5>
+                                     <p className="text-sm text-blue-900/80 leading-relaxed">
+                                         {priceAnalysis.reasoning}
+                                     </p>
                                  </div>
                              </div>
-                             <div className="flex items-center">
-                                 <div className="text-center px-6 border-l border-emerald-200">
-                                     <div className="text-2xl font-bold text-emerald-600">{priceAnalysis.confidence}%</div>
-                                     <div className="text-xs text-emerald-800">Уверенность</div>
+                             
+                             <div className="flex flex-col justify-center items-center lg:w-48 lg:border-l border-gray-100 lg:pl-8">
+                                 <div className="relative w-32 h-32 flex items-center justify-center mb-4">
+                                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                                         <circle cx="18" cy="18" r="16" fill="none" className="stroke-gray-100" strokeWidth="3" />
+                                         <circle cx="18" cy="18" r="16" fill="none" className="stroke-emerald-500" strokeWidth="3" strokeDasharray="100" strokeDashoffset={100 - priceAnalysis.confidence} strokeLinecap="round" />
+                                     </svg>
+                                     <div className="absolute flex flex-col items-center">
+                                         <span className="text-3xl font-bold text-gray-900">{priceAnalysis.confidence}%</span>
+                                     </div>
                                  </div>
+                                 <span className="text-sm font-medium text-gray-500">Уверенность</span>
                              </div>
                         </div>
                     )}
 
-                    {products.slice(0, 3).map(product => (
-                        <div key={product.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition-shadow bg-gray-50/50">
+                    {products.slice(0, 3).map((product, index) => (
+                        <div key={`${product.id}-${index}`} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition-shadow bg-gray-50/50">
                             <div className="flex items-center gap-3 mb-4">
                                 <img src={product.image} className="w-12 h-12 rounded-lg object-cover" />
                                 <div>
@@ -415,8 +478,185 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
         </div>
     );
 
+    const IntegrationsView = () => (
+        <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-900">Интеграции</h2>
+                    <p className="text-gray-500 text-sm">Импорт товаров с маркетплейсов</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Ozon Integration */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold text-xl">O</div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Ozon</h3>
+                                <p className="text-xs text-gray-500">Импорт по API</p>
+                            </div>
+                        </div>
+                        {connectedPlatforms.includes('ozon') ? (
+                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Check size={12} className="mr-1"/> Подключено</span>
+                        ) : (
+                            <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Не подключено</span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 flex-1">Sync товаров, цен и остатков из кабинета Ozon.</p>
+                    <Button 
+                        variant={connectedPlatforms.includes('ozon') ? 'outline' : 'primary'} 
+                        className="w-full"
+                        onClick={() => {
+                            setIntegrationPlatform('ozon');
+                            setIsIntegrationModalOpen(true);
+                        }}
+                    >
+                        {connectedPlatforms.includes('ozon') ? 'Синхронизировать' : 'Подключить'}
+                    </Button>
+                </div>
+
+                {/* Yandex Market Integration */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-yellow-50 rounded-xl flex items-center justify-center text-yellow-500 font-bold text-xl">Я</div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Яндекс Маркет</h3>
+                                <p className="text-xs text-gray-500">Импорт по API</p>
+                            </div>
+                        </div>
+                        {connectedPlatforms.includes('yandex') ? (
+                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Check size={12} className="mr-1"/> Подключено</span>
+                        ) : (
+                            <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Не подключено</span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 flex-1">Sync товаров, цен и остатков из кабинета Яндекс Маркет.</p>
+                    <Button 
+                        variant={connectedPlatforms.includes('yandex') ? 'outline' : 'primary'} 
+                        className="w-full"
+                        onClick={() => {
+                            setIntegrationPlatform('yandex');
+                            setIsIntegrationModalOpen(true);
+                        }}
+                    >
+                        {connectedPlatforms.includes('yandex') ? 'Синхронизировать' : 'Подключить'}
+                    </Button>
+                </div>
+
+                {/* Wildberries Integration */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 font-bold text-xl">W</div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Wildberries</h3>
+                                <p className="text-xs text-gray-500">Импорт по API</p>
+                            </div>
+                        </div>
+                        {connectedPlatforms.includes('wildberries') ? (
+                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Check size={12} className="mr-1"/> Подключено</span>
+                        ) : (
+                            <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Не подключено</span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 flex-1">Sync товаров, цен и остатков из кабинета Wildberries.</p>
+                    <Button 
+                        variant={connectedPlatforms.includes('wildberries') ? 'outline' : 'primary'} 
+                        className="w-full"
+                        onClick={() => {
+                            setIntegrationPlatform('wildberries');
+                            setIsIntegrationModalOpen(true);
+                        }}
+                    >
+                        {connectedPlatforms.includes('wildberries') ? 'Синхронизировать' : 'Подключить'}
+                    </Button>
+                </div>
+
+                {/* Avito Integration */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center text-blue-500 font-bold text-xl px-1">A</div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">Авито</h3>
+                                <p className="text-xs text-gray-500">Автозагрузка (XML)</p>
+                            </div>
+                        </div>
+                        {connectedPlatforms.includes('avito') ? (
+                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Check size={12} className="mr-1"/> Подключено</span>
+                        ) : (
+                            <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Не подключено</span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 flex-1">Импорт и экспорт объявлений через Автозагрузку Авито.</p>
+                    <Button 
+                        variant={connectedPlatforms.includes('avito') ? 'outline' : 'primary'} 
+                        className="w-full"
+                        onClick={() => {
+                            setIntegrationPlatform('avito');
+                            setIsIntegrationModalOpen(true);
+                        }}
+                    >
+                        {connectedPlatforms.includes('avito') ? 'Синхронизировать' : 'Подключить'}
+                    </Button>
+                </div>
+
+                {/* MegaMarket Integration */}
+                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-500 font-bold text-xl">M</div>
+                            <div>
+                                <h3 className="font-bold text-gray-900">МегаМаркет</h3>
+                                <p className="text-xs text-gray-500">Импорт по API</p>
+                            </div>
+                        </div>
+                        {connectedPlatforms.includes('megamarket') ? (
+                            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Check size={12} className="mr-1"/> Подключено</span>
+                        ) : (
+                            <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Не подключено</span>
+                        )}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-6 flex-1">Sync товаров из кабинета Сбер МегаМаркет.</p>
+                    <Button 
+                        variant={connectedPlatforms.includes('megamarket') ? 'outline' : 'primary'} 
+                        className="w-full"
+                        onClick={() => {
+                            setIntegrationPlatform('megamarket');
+                            setIsIntegrationModalOpen(true);
+                        }}
+                    >
+                        {connectedPlatforms.includes('megamarket') ? 'Синхронизировать' : 'Подключить'}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="flex min-h-[calc(100vh-64px)] bg-gray-50 pt-16">
+        <div className="flex flex-col md:flex-row min-h-[calc(100vh-64px)] bg-gray-50 pt-16">
+            <Helmet>
+                <title>Панель продавца</title>
+                <meta name="robots" content="noindex, nofollow" />
+            </Helmet>
+            
+            {/* Mobile Navigation */}
+            <div className="md:hidden bg-white border-b border-gray-200 overflow-x-auto sticky top-16 z-20">
+                <div className="flex p-2 gap-2">
+                    <button onClick={() => setCurrentView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === 'dashboard' ? 'bg-emerald-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Обзор</button>
+                    <button onClick={() => setCurrentView('analytics')} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === 'analytics' ? 'bg-emerald-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>AI Аналитика</button>
+                    <button onClick={() => setCurrentView('products')} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === 'products' ? 'bg-emerald-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Товары</button>
+                    <button onClick={() => setCurrentView('orders')} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === 'orders' ? 'bg-emerald-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Заказы</button>
+                    <button onClick={() => setCurrentView('integrations')} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${currentView === 'integrations' ? 'bg-emerald-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Интеграции</button>
+                    <div className="w-px bg-gray-200 mx-1"></div>
+                    <button onClick={onLogout} className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-rose-500 hover:bg-rose-50 flex items-center gap-2"><LogOut size={16} /> Выйти</button>
+                    <button onClick={() => setIsAssistantOpen(true)} className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-emerald-100 text-emerald-800 hover:bg-emerald-200 flex items-center gap-2"><Zap size={16} /> ИИ-Помощник</button>                  
+                </div>
+            </div>
+
             <aside className="w-64 bg-white border-r border-gray-200 fixed h-full hidden md:flex flex-col p-6 z-10">
                 <div className="mb-8 flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-700 font-bold text-lg">{user?.shopName ? user.shopName.substring(0,2).toUpperCase() : 'GP'}</div>
@@ -428,12 +668,14 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     <SidebarItem icon={Package} label="Товары" view="products" />
                     <SidebarItem icon={ShoppingCart} label="Заказы" view="orders" />
                     <SidebarItem icon={Users} label="Клиенты" view="customers" />
+                    <SidebarItem icon={LinkIcon} label="Интеграции" view="integrations" />
                 </nav>
-                <div className="border-t border-gray-100 pt-4 space-y-1">
+                <div className="border-t border-gray-100 pt-4 space-y-1 mt-auto">
+                    <button onClick={() => setIsAssistantOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"><Zap size={18} /> Бизнес-ассистент</button>
                     <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-rose-500 hover:bg-rose-50 transition-colors"><LogOut size={18} /> Выйти</button>
                 </div>
             </aside>
-            <main className="flex-1 md:ml-64 p-8">
+            <main className="flex-1 md:ml-64 p-4 md:p-8">
                 {currentView === 'dashboard' && (
                      <div className="space-y-8 animate-in fade-in duration-300">
                         <div className="flex justify-between items-end">
@@ -452,8 +694,124 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                 {currentView === 'analytics' && <AnalyticsView />}
                 {currentView === 'products' && <ProductsView />}
                 {currentView === 'orders' && <OrdersView />}
+                {currentView === 'integrations' && <IntegrationsView />}
                 {currentView === 'customers' && <div className="p-8 text-center text-gray-500">Раздел клиентов</div>}
             </main>
+
+            {/* Integration Modal */}
+            {isIntegrationModalOpen && integrationPlatform && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">
+                                {integrationPlatform === 'ozon' ? 'Интеграция с Ozon' : 
+                                 integrationPlatform === 'wildberries' ? 'Интеграция с Wildberries' :
+                                 integrationPlatform === 'avito' ? 'Интеграция с Авито' :
+                                 integrationPlatform === 'megamarket' ? 'Интеграция с МегаМаркет' :
+                                 'Интеграция с Яндекс Маркет'}
+                            </h3>
+                            <button onClick={() => setIsIntegrationModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={20} /></button>
+                        </div>
+                        
+                        <div className="space-y-4 mb-6">
+                            <p className="text-sm text-gray-600">
+                                Введите API-ключ ваcшего кабинета {
+                                 integrationPlatform === 'ozon' ? 'Ozon' : 
+                                 integrationPlatform === 'wildberries' ? 'Wildberries' :
+                                 integrationPlatform === 'avito' ? 'Авито' :
+                                 integrationPlatform === 'megamarket' ? 'МегаМаркет' :
+                                 'Яндекс Маркет'}, чтобы мы могли загрузить ваши товары.
+                            </p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">API Ключ</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" 
+                                    value={integrationApiKey} 
+                                    onChange={e => setIntegrationApiKey(e.target.value)} 
+                                    placeholder="Введите ключ..." 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                            <Button variant="ghost" onClick={() => setIsIntegrationModalOpen(false)}>Отмена</Button>
+                            <Button 
+                                disabled={!integrationApiKey || isImporting}
+                                onClick={async () => {
+                                    setIsImporting(true);
+                                    // Simulate API call and import
+                                    setTimeout(async () => {
+                                        setIsImporting(false);
+                                        setIsIntegrationModalOpen(false);
+                                        setIntegrationApiKey('');
+                                        
+                                        if (!connectedPlatforms.includes(integrationPlatform)) {
+                                            setConnectedPlatforms([...connectedPlatforms, integrationPlatform]);
+                                        }
+                                        
+                                        // Add mock products based on platform
+                                        const platformName = integrationPlatform === 'ozon' ? 'Ozon' : 
+                                                             integrationPlatform === 'wildberries' ? 'Wildberries' :
+                                                             integrationPlatform === 'avito' ? 'Авито' :
+                                                             integrationPlatform === 'megamarket' ? 'МегаМаркет' :
+                                                             'Яндекс Маркет';
+                                        const mockProducts: Product[] = [
+                                            {
+                                                id: `${integrationPlatform}-1-${crypto.randomUUID()}`,
+                                                name: `Букет из ${platformName} 1`,
+                                                price: 3500,
+                                                stock: 15,
+                                                isActive: true,
+                                                storeId: user?.id || 's1',
+                                                category: Category.BOUQUETS,
+                                                image: 'https://images.unsplash.com/photo-1563241527-2004ab3ba185?q=80&w=800&auto=format&fit=crop',
+                                                description: `Импортировано из ${platformName}`,
+                                                tags: ['импорт', platformName.toLowerCase()],
+                                                reviews: 0,
+                                                rating: 5.0
+                                            },
+                                            {
+                                                id: `${integrationPlatform}-2-${crypto.randomUUID()}`,
+                                                name: `Композиция из ${platformName} 2`,
+                                                price: 5200,
+                                                stock: 8,
+                                                isActive: true,
+                                                storeId: user?.id || 's1',
+                                                category: Category.BOUQUETS,
+                                                image: 'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?q=80&w=800&auto=format&fit=crop',
+                                                description: `Импортировано из ${platformName}`,
+                                                tags: ['импорт', platformName.toLowerCase()],
+                                                reviews: 0,
+                                                rating: 5.0
+                                            }
+                                        ];
+                                        
+                                        // Add sequentially to avoid race conditions in local storage
+                                        for (const p of mockProducts) {
+                                            await onAddProduct(p);
+                                        }
+                                        
+                                        const importedPlatformName = integrationPlatform === 'ozon' ? 'Ozon' : 
+                                                                     integrationPlatform === 'wildberries' ? 'Wildberries' :
+                                                                     integrationPlatform === 'avito' ? 'Авито' :
+                                                                     integrationPlatform === 'megamarket' ? 'МегаМаркет' :
+                                                                     'Яндекс Маркет';
+                                        addToast('success', `Товары из ${importedPlatformName} успешно импортированы`);
+                                    }, 1500);
+                                }}
+                            >
+                                {isImporting ? (
+                                    <><DownloadCloud size={16} className="mr-2 animate-bounce" /> Импорт...</>
+                                ) : (
+                                    'Подключить и импортировать'
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Product Modal Code (Same as previous, omitted for brevity but assumed present) */}
             {isProductModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -485,25 +843,53 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                                      </div>
                                  </div>
                                  <div>
-                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ссылка на фото</label>
-                                     <div className="flex gap-2">
-                                        <input type="text" className="w-full p-2 border rounded-lg text-xs" value={prodImage} onChange={e => setProdImage(e.target.value)} placeholder="https://..." />
-                                        <div className="w-10 h-10 border rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                            {prodImage ? <img src={prodImage} className="w-full h-full object-cover" /> : <ImageIcon size={16} className="text-gray-400"/>}
+                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ссылка на фото или загрузка</label>
+                                     <div className="flex flex-col gap-2">
+                                        <div className="flex gap-2">
+                                            <input type="text" className="w-full p-2 border rounded-lg text-xs" value={prodImage} onChange={e => setProdImage(e.target.value)} placeholder="https://..." />
+                                            <div className="w-10 h-10 border rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                                {prodImage ? <img src={prodImage} className="w-full h-full object-cover" /> : <ImageIcon size={16} className="text-gray-400"/>}
+                                            </div>
                                         </div>
+                                        <div className="flex gap-2">
+                                            <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 text-xs font-medium px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                                                Из устройства
+                                            </button>
+                                            <input type="file" className="hidden" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} />
+                                            {existingImages.length > 0 && (
+                                                <button type="button" onClick={() => setIsImagePickerOpen(!isImagePickerOpen)} className="flex-1 text-xs font-medium px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors">
+                                                Из загруженных
+                                                </button>
+                                            )}
+                                        </div>
+                                        {isImagePickerOpen && existingImages.length > 0 && (
+                                            <div className="grid grid-cols-4 gap-2 mt-2 p-2 border rounded-lg max-h-32 overflow-y-auto">
+                                                {existingImages.map((img, i) => (
+                                                    <div key={i} className="cursor-pointer border hover:border-emerald-500 rounded relative" onClick={() => { setProdImage(img); setIsImagePickerOpen(false); }}>
+                                                        <img src={img} className="w-full h-12 object-cover rounded" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                      </div>
                                  </div>
                                  <div>
                                      <label className="block text-sm font-medium text-gray-700 mb-1">Ключевые слова (для AI)</label>
                                      <input type="text" className="w-full p-2 border rounded-lg" value={prodKeywords} onChange={e => setProdKeywords(e.target.value)} placeholder="нежный, розовый, пионы" />
                                  </div>
-                                 <Button size="sm" onClick={handleGenerateDescription} disabled={isGenerating} className="w-full justify-center">
+                                 <Button size="sm" onClick={(e) => { e.preventDefault(); handleGenerateDescription(); }} disabled={isGenerating} className="w-full justify-center mt-2">
                                      <Sparkles size={14} className="mr-2"/> {isGenerating ? 'Пишу...' : 'Создать описание с AI'}
                                  </Button>
                              </div>
-                             <div className="flex flex-col h-full">
-                                 <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
-                                 <textarea className="w-full flex-1 min-h-[150px] p-3 border rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors outline-none focus:border-emerald-500" value={prodDesc} onChange={e => setProdDesc(e.target.value)} placeholder="Здесь появится AI описание..." />
+                             <div className="flex flex-col h-full gap-4">
+                                 <div>
+                                     <label className="block text-sm font-medium text-gray-700 mb-1">Краткое описание</label>
+                                     <textarea className="w-full min-h-[80px] p-3 border rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors outline-none focus:border-emerald-500" value={prodDesc} onChange={e => setProdDesc(e.target.value)} placeholder="Здесь появится AI описание..." />
+                                 </div>
+                                 <div className="flex-1 flex flex-col">
+                                     <label className="block text-sm font-medium text-gray-700 mb-1">Длинное описание (для карточки товара)</label>
+                                     <textarea className="w-full flex-1 min-h-[120px] p-3 border rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors outline-none focus:border-emerald-500" value={prodLongDesc} onChange={e => setProdLongDesc(e.target.value)} placeholder="Подробное описание товара, состав, особенности..." />
+                                 </div>
                              </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -513,6 +899,12 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
                     </div>
                 </div>
             )}
+            
+            <SellerAIAssistant 
+                isOpen={isAssistantOpen} 
+                onClose={() => setIsAssistantOpen(false)} 
+                sellerId={user?.id || 'guest_seller'} 
+            />
         </div>
     );
 };

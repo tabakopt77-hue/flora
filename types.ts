@@ -1,3 +1,4 @@
+import React from 'react';
 
 export type UserRole = 'guest' | 'buyer' | 'seller' | 'admin';
 
@@ -54,6 +55,7 @@ export interface Product {
   careInstructions?: string;
   rating?: number;
   reviews?: number;
+  dimensions?: { width: number; height: number };
 }
 
 export interface CartItem extends Product {
@@ -92,17 +94,19 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   isError?: boolean;
+  image?: string; // Base64 data URL
 }
 
 export interface BlogPost {
   id: string;
   title: string;
   excerpt: string;
-  content: string;
+  content: React.ReactNode;
   image: string;
   date: string;
   author: string;
   readTime: string;
+  category?: string;
 }
 
 export interface SellerStat {

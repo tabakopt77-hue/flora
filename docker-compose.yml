@@ -1,0 +1,74 @@
+
+version: '3.8'
+
+services:
+  # Database locked inside Docker network (not accessible from outside)
+  db:
+    container_name: aura_flora_db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bloom_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aura_flora_net
+
+  redis:
+    container_name: aura_flora_redis
+    image: redis:7-alpine
+    restart: always
+    networks:
+      - aura_flora_net
+
+  qdrant:
+    container_name: aura_flora_qdrant
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: always
+    networks:
+      - aura_flora_net
+
+  app:
+    container_name: aura_flora_app
+    build: .
+    image: aura-flora-app:latest
+    # Слушаем только локальный порт 8095, чтобы не конфликтовать с другими сайтами
+    ports:
+      - "127.0.0.1:8095:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:password@db:5432/bloom_db
+      REDIS_URL: redis://redis:6379
+      QDRANT_URL: http://qdrant:6334
+      RUST_LOG: info
+      STATIC_DIR: /app/dist
+      # Secrets injected from .env file
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    restart: always
+    networks:
+      - aura_flora_net
+
+volumes:
+  postgres_data:
+  qdrant_data:
+
+networks:
+  aura_flora_net:
+    driver: bridge
