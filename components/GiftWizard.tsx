@@ -65,7 +65,7 @@ export const GiftWizard: React.FC<GiftWizardProps> = ({ isOpen, onClose, allProd
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="p-2 bg-white/20 rounded-lg"><Gift size={24} className="text-emerald-100"/></div>
-                            <h2 className="font-serif text-2xl font-medium">Помощник Aura Flora</h2>
+                            <h2 className="font-serif text-2xl font-medium">Помощник Floramos</h2>
                         </div>
                         <p className="text-emerald-100/80 text-sm">ИИ подберет идеальный подарок за пару секунд</p>
                     </div>

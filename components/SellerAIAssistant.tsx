@@ -41,7 +41,7 @@ export const SellerAIAssistant: React.FC<SellerAIAssistantProps> = ({ isOpen, on
 
   const initializeChat = () => {
     setMessages([
-      { role: 'model', text: "Привет! Я ваш ИИ-ассистент продавца Aura Flora. Я здесь, чтобы помочь вам настроить рекламу в Яндекс и Google, проанализировать продажи, настроить профиль и оптимизировать вашу маржу. Чем могу помочь?" }
+      { role: 'model', text: "Привет! Я ваш ИИ-ассистент продавца Floramos. Я здесь, чтобы помочь вам настроить рекламу в Яндекс и Google, проанализировать продажи, настроить профиль и оптимизировать вашу маржу. Чем могу помочь?" }
     ]);
   };
 
@@ -69,7 +69,7 @@ export const SellerAIAssistant: React.FC<SellerAIAssistantProps> = ({ isOpen, on
     setIsLoading(true);
 
     try {
-        const systemInstruction = `Ты персональный помощник КАЖДОГО продавца на маркетплейсе Aura Flora. 
+        const systemInstruction = `Ты персональный помощник КАЖДОГО продавца на маркетплейсе Floramos. 
 Твоя задача — индивидуально подсказывать, помогать и настраивать все для продавца. 
 Ты можешь:
 - Автоматически настраивать рекламу в Яндекс Директ и Google Ads (API симуляция)

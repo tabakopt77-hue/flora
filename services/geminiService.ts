@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Product, UserPreferences, ChatMessage, PriceAnalysis, DemandForecast, Category, AIVerdict } from "../types";
+import { Product, Order, UserPreferences, ChatMessage, PriceAnalysis, DemandForecast, Category, AIVerdict } from "../types";
 import { db } from "./db";
 
 // Initialize Gemini API
@@ -22,10 +22,10 @@ const cleanAndParseJson = (text: string | undefined) => {
 // --- RAG SYSTEM: KNOWLEDGE BASE ---
 
 const KNOWLEDGE_BASE = {
-  shipping: "Доставка осуществляется по Москве: Пешим курьером Достависта (400 руб), Экспресс на такси по тарифу Яндекс (800 руб), и курьером Aura Flora (300 руб). Бесплатная стандартная доставка при заказе от 10 000 руб. С SafeRoute больше не сотрудничаем. Интервалы доставки: 10-14, 14-18, 18-22.",
+  shipping: "Доставка осуществляется по Москве: Пешим курьером Достависта (400 руб), Экспресс на такси по тарифу Яндекс (800 руб), и курьером Floramos (300 руб). Бесплатная стандартная доставка при заказе от 10 000 руб. С SafeRoute больше не сотрудничаем. Интервалы доставки: 10-14, 14-18, 18-22.",
   care: "Общие правила ухода: Подрезайте стебли под углом 45 градусов. Используйте чистую прохладную воду. Меняйте воду раз в 2 дня. Не ставьте цветы на сквозняке, у батарей или под прямые солнечные лучи.",
   returns: "Цветы являются товаром надлежащего качества, не подлежащим возврату (Постановление РФ №55). Однако, если букет приехал вялым, мы заменим его в течение 24 часов. пришлите фото в течение часа после получения.",
-  about: "Aura Flora — премиальный цветочный маркетплейс, объединяющий лучших флористов. Мы используем ИИ для проверки качества каждого букета перед отправкой."
+  about: "Floramos — маркетплейс от людей и для людей. Мы, возможно, не первые на рынке, но стараемся быть лучшими и делаем всё как для себя. Объединяем трудолюбивых флористов, искренне стараемся помогать покупателям найти букет по душе, а ИИ помогает нам в проверках."
 };
 
 const retrieveRAGContext = (query: string): string => {
@@ -63,7 +63,7 @@ export const getFloristChatResponse = async (history: ChatMessage[], newMessage:
 
     // 2. CONSTRUCT SYSTEM PROMPT
     const systemInstruction = `
-      Ты — "Flora", ИИ-ассистент бутика "Aura Flora".
+      Ты — "Flora", ИИ-ассистент бутика "Floramos".
       
       ГЛАВНАЯ ДИРЕКТИВА:
       Ты общаешься ИСКЛЮЧИТЕЛЬНО на тему цветов, букетов, подарков, оформления и ухода за растениями.
@@ -141,7 +141,7 @@ export const getFloristChatResponse = async (history: ChatMessage[], newMessage:
 export const analyzePrice = async (productName: string, currentPrice: number, category: Category): Promise<PriceAnalysis | null> => {
     try {
         const prompt = `
-        Ты — ИИ-аналитик маркетплейса Aura Flora. Проведи анализ цены товара.
+        Ты — ИИ-аналитик маркетплейса Floramos. Проведи анализ цены товара.
         
         ТОВАР:
         Название: "${productName}"
@@ -222,6 +222,112 @@ export const getSeasonalForecast = async (category: string): Promise<DemandForec
     }
 };
 
+export interface DbDemandForecast {
+  period: string;
+  trend: 'rising' | 'falling' | 'stable';
+  predictedSalesGrowth: number;
+  topKeywords: string[];
+  actionableTips: string[];
+  demandByVariety: {
+    name: string;
+    currentStock: number;
+    predictedDemandScore: number;
+    recommendation: 'increase' | 'maintain' | 'reduce';
+    confidence: number;
+    details: string;
+  }[];
+}
+
+export const getDbFlowerDemandForecast = async (
+  products: Product[],
+  orders: Order[]
+): Promise<DbDemandForecast | null> => {
+    try {
+        const currentMonth = new Date().toLocaleString('ru-RU', { month: 'long' });
+        const nextMonth = new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleString('ru-RU', { month: 'long' });
+
+        // Summarize items in database
+        const productSummary = products.slice(0, 15).map(p => ({
+            name: p.name,
+            category: p.category,
+            stock: p.stock,
+            price: p.price
+        }));
+
+        // Summarize orders in database
+        const orderSummary = orders.slice(0, 15).map(o => ({
+            id: o.id,
+            date: o.date,
+            total: o.total,
+            status: o.status,
+            itemCount: o.items.length,
+            itemNames: o.items.map((item: { name: string }) => item.name).join(', ')
+        }));
+
+        const prompt = `
+        Ты — ведущий ИИ-аналитик логистики и планирования закупок для флористического маркетплейса "Floramos".
+        Текущий месяц: ${currentMonth}. Мы прогнозируем спрос на следующий месяц: ${nextMonth}.
+
+        ДАННЫЕ ИЗ БАЗЫ:
+        - Всего уникальных товаров в каталоге: ${products.length}
+        - Пример списка товаров: ${JSON.stringify(productSummary)}
+        - Всего заказов в базе: ${orders.length}
+        - Детализация последних заказов: ${JSON.stringify(orderSummary)}
+
+        УКАЗАНИЯ ДЛЯ АНАЛИЗА:
+        1. Если в базе еще нет реальных заказов (orders.length === 0), проведи аналитический прогноз на основе имеющихся сортов в каталоге и их складских запасов (stock).
+        2. Распознай ключевые виды цветов из названий товаров (например: "роза Athena", "пион", "гортензия", "гипсофила", "тюльпан") и сгруппируй спрос по этим категориям/сортам в поле 'demandByVariety'.
+        3. Спрогнозируй ожидаемое изменение спроса на следующий месяц в процентах (predictedSalesGrowth) и определи общий тренд (trend: "rising" - рост, "falling" - спад, "stable" - стабильно).
+        4. Сформулируй 3-4 точечных практических совета по закупкам тюльпанов, роз или сезонных сортов в 'actionableTips' на русском языке.
+        5. Для каждого ключевого сорта в 'demandByVariety' (составь список из 4-5 ключевых сортов роз, пионов, кустовых цветов или коробок) выдай:
+           - currentStock: текущие остатки на складе (суммируй или оцени по товарам в базе)
+           - predictedDemandScore: прогнозируемый балл спроса от 1 до 100
+           - recommendation: рекомендация ("increase" - увеличить закупки, "maintain" - оставить текущий уровень, "reduce" - распродать остатки/снизить закупку)
+           - confidence: уверенность в прогнозе (%)
+           - details: конкретное обоснование рекомендации на русском языке.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        period: { type: Type.STRING },
+                        trend: { type: Type.STRING, enum: ["rising", "falling", "stable"] },
+                        predictedSalesGrowth: { type: Type.NUMBER },
+                        topKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        actionableTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        demandByVariety: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    name: { type: Type.STRING },
+                                    currentStock: { type: Type.NUMBER },
+                                    predictedDemandScore: { type: Type.NUMBER },
+                                    recommendation: { type: Type.STRING, enum: ["increase", "maintain", "reduce"] },
+                                    confidence: { type: Type.NUMBER },
+                                    details: { type: Type.STRING }
+                                },
+                                required: ["name", "currentStock", "predictedDemandScore", "recommendation", "confidence", "details"]
+                            }
+                        }
+                    },
+                    required: ["period", "trend", "predictedSalesGrowth", "topKeywords", "actionableTips", "demandByVariety"]
+                }
+            }
+        });
+
+        return cleanAndParseJson(response.text);
+    } catch (e) {
+        console.error("Db Forecast Error:", e);
+        return null;
+    }
+};
+
 export const generateProductDescription = async (productName: string, keywords: string) => {
     try {
         const prompt = `Ты — эксперт по продажам на цветочном маркетплейсе. 
@@ -261,7 +367,7 @@ export const moderateProduct = async (product: Product): Promise<AIVerdict> => {
     try {
         // Simulation of Vision API for image analysis (in real app, send image bytes)
         const prompt = `
-        Ты — модератор контента на маркетплейсе цветов Aura Flora.
+        Ты — модератор контента на маркетплейсе цветов Floramos.
         Твоя задача — проверить карточку товара на безопасность и качество.
         
         ТОВАР:

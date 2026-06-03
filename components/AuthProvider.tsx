@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (provider: string) => Promise<void>;
+  login: (provider: string, customUser?: User) => Promise<void>;
   logout: () => void;
 }
 
@@ -33,11 +33,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = async (provider: string) => {
+  const login = async (provider: string, customUser?: User) => {
     setIsLoading(true);
     try {
-      const response = await authService.login(provider);
-      setUser(response.user);
+      if (customUser) {
+        localStorage.setItem('bloom_jwt_token', 'mock-jwt-token-' + crypto.randomUUID());
+        localStorage.setItem('bloom_user_data', JSON.stringify(customUser));
+        setUser(customUser);
+      } else {
+        const response = await authService.login(provider);
+        setUser(response.user);
+      }
     } catch (error) {
       console.error("Login failed", error);
       throw error;

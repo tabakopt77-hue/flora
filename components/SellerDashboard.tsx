@@ -36,7 +36,7 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
 
     // --- State for Integrations View ---
     const [isIntegrationModalOpen, setIsIntegrationModalOpen] = useState(false);
-    const [integrationPlatform, setIntegrationPlatform] = useState<'ozon' | 'yandex' | null>(null);
+    const [integrationPlatform, setIntegrationPlatform] = useState<'ozon' | 'yandex' | 'wildberries' | 'avito' | 'megamarket' | null>(null);
     const [integrationApiKey, setIntegrationApiKey] = useState('');
     const [isImporting, setIsImporting] = useState(false);
     const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);

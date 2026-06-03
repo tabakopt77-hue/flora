@@ -99,7 +99,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
     return (
       <div className="container mx-auto px-4 py-32 text-center">
         <Helmet>
-          <title>Товар не найден | Aura Flora</title>
+          <title>Товар не найден | Floramos</title>
         </Helmet>
         <h2 className="text-2xl font-serif mb-4">Товар не найден</h2>
         <Button onClick={() => navigate('/catalog')}>Вернуться в каталог</Button>
@@ -130,7 +130,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
     "description": product.description,
     "brand": {
       "@type": "Brand",
-      "name": "Aura Flora"
+      "name": "Floramos"
     },
     "sku": product.id,
     "offers": {
@@ -191,7 +191,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ allProducts, onA
 
              {/* Watermark */}
              <div className="absolute bottom-4 right-4 text-xs font-bold text-white/60 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] pointer-events-none z-20 select-none">
-               AURA FLORA
+               FLORAMOS
              </div>
              
              {isOutOfStock && (

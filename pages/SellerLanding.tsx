@@ -31,7 +31,7 @@ export const SellerLanding: React.FC<SellerLandingProps> = ({ onJoin }) => {
               transition={{ delay: 0.1 }}
               className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto"
             >
-              Aura Flora — это премиальный маркетплейс. Мы берем на себя привлечение клиентов и ИИ-рекомендации, а вы занимаетесь творчеством.
+              Floramos — это маркетплейс от людей и для людей. Мы, возможно, не первые на рынке, но стараемся быть лучшими, потому что делаем всё как для себя. Мы берем на себя привлечение клиентов и технологии, а вы можете спокойно заниматься любимым делом.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -57,8 +57,8 @@ export const SellerLanding: React.FC<SellerLandingProps> = ({ onJoin }) => {
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                 <Users className="text-emerald-700" size={28} />
               </div>
-              <h3 className="text-2xl font-serif text-emerald-900 mb-3">Премиум аудитория</h3>
-              <p className="text-gray-600 leading-relaxed">Наши клиенты ищут уникальные авторские букеты и готовы платить за качество и сервис.</p>
+              <h3 className="text-2xl font-serif text-emerald-900 mb-3">Ценители честного труда</h3>
+              <p className="text-gray-600 leading-relaxed">Наши покупатели ищут букеты, сделанные с душой, и ценят ваше мастерство и человеческое отношение.</p>
             </div>
             <div className="bg-sage-50 p-6 md:p-8 rounded-3xl">
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm">

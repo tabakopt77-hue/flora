@@ -26,6 +26,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
   const [formData, setFormData] = useState({
     name: user?.name || '',
     phone: '',
+    contactMethod: '',
     city: 'Москва',
     street: '',
     apartment: '',
@@ -138,9 +139,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
         let deliveryServiceStr = '';
         if (deliveryType === 'yandex') deliveryServiceStr = 'Экспресс на такси по тарифу Яндекс';
         if (deliveryType === 'dostavista') deliveryServiceStr = 'Пешим курьером Достависта';
-        if (deliveryType === 'aura') deliveryServiceStr = 'Доставка курьером Aura Flora';
+        if (deliveryType === 'aura') deliveryServiceStr = 'Доставка курьером Floramos';
 
         const getDeliveryCost = () => {
+            if (total >= 10000) return 0;
             if (deliveryType === 'aura') return 300;
             if (deliveryType === 'dostavista') return 400;
             return 800; // yandex
@@ -163,6 +165,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
   };
 
   const getDeliveryCost = () => {
+      if (total >= 10000) return 0;
       if (deliveryType === 'aura') return 300;
       if (deliveryType === 'dostavista') return 400;
       return 800; // yandex
@@ -226,6 +229,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
                   <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
                   <input required name="phone" value={formData.phone} onChange={handleInputChange} type="tel" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="+7 (999) 000-00-00" />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Желаемый вид связи (опционально)</label>
+                  <input name="contactMethod" value={formData.contactMethod || ''} onChange={handleInputChange} type="text" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Например: WhatsApp, Telegram, звонок" />
+                </div>
               </div>
             </section>
 
@@ -240,7 +247,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
                  <label className={`cursor-pointer border rounded-xl p-4 flex items-center gap-4 transition-all ${deliveryType === 'aura' ? 'border-emerald-500 bg-emerald-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
                     <input type="radio" name="deliveryType" value="aura" checked={deliveryType === 'aura'} onChange={() => setDeliveryType('aura')} className="w-5 h-5 text-emerald-600 focus:ring-emerald-500" />
                     <div>
-                        <div className="font-bold text-gray-900">Доставка курьером Aura Flora</div>
+                        <div className="font-bold text-gray-900">Доставка курьером Floramos</div>
                         <div className="text-xs text-gray-500">Бережная доставка нашими сотрудниками (300 ₽)</div>
                     </div>
                  </label>
@@ -417,6 +424,9 @@ export const Checkout: React.FC<CheckoutProps> = ({ cart, user, onPlaceOrder, to
               <Button className={`w-full py-4 text-lg shadow-xl ${formData.paymentMethod === 'sberbank' ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-emerald-900 shadow-emerald-200'}`} type="submit" form="checkout-form" disabled={isProcessing}>
                  {isProcessing ? 'Обработка...' : formData.paymentMethod === 'sberbank' ? 'Оплатить через SberPay' : 'Подтвердить заказ'}
               </Button>
+              <p className="text-[11px] text-gray-500 mt-4 text-center leading-relaxed">
+                Нажимая кнопку, вы даете согласие на обработку персональных данных в соответствии с <a href="#" className="underline hover:text-emerald-700 transition-colors">Политикой конфиденциальности</a> (ФЗ от 27.07.2006 г. № 152-ФЗ) и принимаете <a href="#" className="underline hover:text-emerald-700 transition-colors">Пользовательское соглашение</a>.
+              </p>
            </div>
         </div>
       </div>

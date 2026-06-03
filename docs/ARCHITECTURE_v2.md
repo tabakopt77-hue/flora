@@ -1,5 +1,5 @@
 
-# 🏛 Aura Flora Enterprise Architecture (v2.0)
+# 🏛 Floramos Enterprise Architecture (v2.0)
 
 ## 1. High-Level Overview
 

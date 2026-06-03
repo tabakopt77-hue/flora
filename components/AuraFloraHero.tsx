@@ -1,76 +1,81 @@
 import React from 'react';
 import { Search, Camera, ShoppingBag, Gift, Sparkles } from 'lucide-react';
-import CinematicParticles from './CinematicParticles';
 
 export default function AuraFloraHero() {
   return (
-    <div className="relative min-h-screen w-full bg-[#022B1E] text-white overflow-hidden font-sans">
-      {/* 3D Particle Background */}
+    <div className="relative min-h-[90vh] w-full bg-[#f8f9fc] text-slate-900 overflow-hidden font-sans">
+      
+      {/* Premium Modern Background Effect */}
       <div className="absolute inset-0 z-0">
-        <CinematicParticles />
+        <div className="absolute top-0 right-0 w-full h-[600px] bg-gradient-to-b from-blue-50/50 via-purple-50/20 to-transparent"></div>
+        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-emerald-100/40 to-cyan-100/40 blur-[100px]"></div>
+        <div className="absolute top-[20%] left-[-100px] w-[400px] h-[400px] rounded-full bg-gradient-to-tr from-rose-100/40 to-orange-100/40 blur-[100px]"></div>
       </div>
       
-      {/* Gradient overlay to ensure text readability on the left */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#022B1E] via-[#022B1E]/60 to-transparent pointer-events-none"></div>
-
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
-        <div className="text-2xl font-serif font-bold tracking-wide">Aura Flora</div>
+        <div className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-serif text-xl italic">F</span>
+            Floramos
+        </div>
         
-        <nav className="hidden md:flex space-x-8 text-sm font-medium">
-          <a href="#" className="hover:text-aura-green transition-colors">Каталог</a>
-          <a href="#" className="hover:text-aura-green transition-colors">Блог</a>
-          <a href="#" className="hover:text-aura-green transition-colors">О нас</a>
+        <nav className="hidden md:flex space-x-8 text-[15px] font-medium text-slate-600">
+          <a href="#" className="hover:text-slate-900 transition-colors">Каталог</a>
+          <a href="#" className="hover:text-slate-900 transition-colors">Блог</a>
+          <a href="#" className="hover:text-slate-900 transition-colors">О нас</a>
         </nav>
 
         <div className="flex items-center space-x-4">
-          <button className="hidden md:flex items-center space-x-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full text-sm transition-colors border border-white/10 backdrop-blur-sm">
-            <Search size={16} className="opacity-70" />
-            <span className="opacity-70">Найти букет</span>
-            <Camera size={16} className="ml-2 opacity-70" />
+          <button className="hidden md:flex items-center space-x-2 bg-white hover:bg-slate-50 shadow-sm border border-slate-200 px-4 py-2 rounded-xl text-sm transition-all focus:ring-2 focus:ring-slate-200 text-slate-600">
+            <Search size={16} />
+            <span>Найти букет</span>
+            <Camera size={16} className="ml-2 text-slate-400" />
           </button>
           
-          <button className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm transition-colors border border-white/10 backdrop-blur-sm relative">
-            <ShoppingBag size={16} />
+          <button className="flex items-center space-x-2 bg-white hover:bg-slate-50 shadow-sm border border-slate-200 px-4 py-2 rounded-xl text-sm transition-all text-slate-900 font-medium relative">
+            <ShoppingBag size={16} className="text-emerald-600" />
             <span>Корзина</span>
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">3</span>
+            <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] font-bold w-5 h-5 rounded-full border-2 border-white flex items-center justify-center">3</span>
           </button>
           
-          <button className="w-9 h-9 rounded-full bg-[#1a4731] border border-aura-green flex items-center justify-center text-sm font-medium hover:bg-[#235c40] transition-colors">
+          <button className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-semibold text-slate-700 hover:bg-slate-200 transition-colors">
             PF
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 container mx-auto px-8 pt-10 md:pt-20 pb-8 md:pb-12 flex flex-col justify-center min-h-[calc(100vh-88px)] max-w-7xl">
-        <div className="max-w-2xl">
-          <h1 className="text-6xl md:text-[5.5rem] font-serif leading-[1.1] mb-6">
-            Искусство <br />
-            <span className="font-cursive text-aura-green text-[5.5rem] md:text-[8rem] lowercase tracking-wider block -mt-6 mb-2">дарить</span>
-            чувства.
+      <main className="relative z-10 container mx-auto px-8 pt-16 md:pt-28 pb-12 flex flex-col justify-center max-w-7xl">
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-sm font-semibold mb-8 border border-emerald-100">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            ИИ подбор букетов работает
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-bold text-slate-900 leading-[1.05] tracking-tight mb-6">
+            Искусство дарить <br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-cyan-600">воспоминания.</span>
           </h1>
           
-          <p className="text-aura-text text-lg md:text-xl mb-10 max-w-lg leading-relaxed font-light">
-            Авторские букеты от Aura Flora с доставкой день в день. Мы объединили мастерство флористов и технологии ИИ.
+          <p className="text-slate-500 text-lg md:text-2xl mb-10 max-w-2xl leading-relaxed font-medium">
+            Свежие авторские букеты от <span className="text-slate-800">Floramos</span> с доставкой за час. Мы объединили мастерство флористов и умные технологии.
           </p>
           
-          <div className="flex flex-wrap items-center gap-4 ml-[120px] md:ml-0">
-            <button className="bg-white text-[#022B1E] px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors">
+          <div className="flex flex-wrap items-center gap-4">
+            <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 hover:shadow-xl hover:-translate-y-0.5">
               Выбрать букет
             </button>
-            <button className="flex items-center space-x-2 border border-white/30 hover:border-white/60 px-8 py-4 rounded-full font-medium transition-colors bg-white/5 backdrop-blur-sm">
-              <Gift size={20} />
+            <button className="flex items-center space-x-2 bg-white text-slate-900 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-8 py-4 rounded-2xl font-semibold transition-all shadow-sm">
+              <Gift size={20} className="text-rose-500" />
               <span>Подобрать подарок</span>
             </button>
           </div>
         </div>
 
-        {/* Bottom Left AI Chat */}
-        <div className="absolute bottom-8 left-16 md:left-8 flex items-center space-x-2 text-aura-text text-sm cursor-pointer hover:text-white transition-colors group">
-          <Sparkles size={16} className="animate-aster" />
-          <span>Чат с флористом Flora AI</span>
-        </div>
+        {/* Floating cards / elements can go here on the right side if needed, but keeping it clean for modern look */}
       </main>
     </div>
   );

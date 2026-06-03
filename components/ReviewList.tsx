@@ -14,13 +14,8 @@ interface Review {
     likes: number;
 }
 
-// Mock reviews generator based on product ID
-const getMockReviews = (productId: string): Review[] => [
-    { id: '1', author: 'Елена М.', rating: 5, date: '12 марта 2024', text: 'Букет просто невероятный! Стоит уже неделю и даже не думает вянуть. Запах на всю квартиру.', likes: 12 },
-    { id: '2', author: 'Александр К.', rating: 5, date: '10 марта 2024', text: 'Заказывал девушке, она в восторге. Курьер приехал вовремя, в костюме, очень вежливый.', likes: 8 },
-    { id: '3', author: 'Марина С.', rating: 4, date: '08 марта 2024', text: 'Цветы свежие, но упаковка немного помялась при доставке. В целом довольна.', likes: 3 },
-    { id: '4', author: 'Игорь В.', rating: 5, date: '05 марта 2024', text: 'Сервис на высоте. Открытку подписали красивым почерком.', likes: 5 },
-];
+// No mock reviews for now, waiting for real clients to add them
+const getMockReviews = (productId: string): Review[] => [];
 
 interface ReviewListProps {
     product: Product;
@@ -57,61 +52,73 @@ export const ReviewList: React.FC<ReviewListProps> = ({ product }) => {
                 <div className="flex-1">
                     <h3 className="font-serif text-2xl text-emerald-900 mb-6">Отзывы покупателей</h3>
                     
-                    {/* AI Summary Card */}
-                    <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-6 mb-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="flex items-start gap-3 relative z-10">
-                            <div className="bg-white p-2 rounded-full shadow-sm text-emerald-600">
-                                <Sparkles size={20} className={loadingSummary ? "animate-spin" : ""} />
+                    {reviews.length > 0 ? (
+                        <>
+                            {/* AI Summary Card */}
+                            <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-2xl p-6 mb-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                                <div className="flex items-start gap-3 relative z-10">
+                                    <div className="bg-white p-2 rounded-full shadow-sm text-emerald-600">
+                                        <Sparkles size={20} className={loadingSummary ? "animate-spin" : ""} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-emerald-900 text-sm mb-1 uppercase tracking-wide">Вердикт ИИ</h4>
+                                        {loadingSummary ? (
+                                            <div className="h-4 bg-emerald-100/50 rounded w-3/4 animate-pulse mt-2"></div>
+                                        ) : (
+                                            <p className="text-emerald-800 text-sm leading-relaxed italic">
+                                                "{aiSummary || 'Анализирую отзывы...'}"
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex-1">
-                                <h4 className="font-bold text-emerald-900 text-sm mb-1 uppercase tracking-wide">Вердикт ИИ</h4>
-                                {loadingSummary ? (
-                                    <div className="h-4 bg-emerald-100/50 rounded w-3/4 animate-pulse mt-2"></div>
-                                ) : (
-                                    <p className="text-emerald-800 text-sm leading-relaxed italic">
-                                        "{aiSummary || 'Анализирую отзывы...'}"
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        {reviews.map(review => (
-                            <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                                            {review.author[0]}
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-gray-900 text-sm">{review.author}</p>
-                                            <div className="flex text-yellow-400">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} />
-                                                ))}
+        
+                            <div className="space-y-6">
+                                {reviews.map(review => (
+                                    <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                                                    {review.author[0]}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900 text-sm">{review.author}</p>
+                                                    <div className="flex text-yellow-400">
+                                                        {[...Array(5)].map((_, i) => (
+                                                            <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} />
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
+                                            <span className="text-xs text-gray-400">{review.date}</span>
+                                        </div>
+                                        <p className="text-gray-600 text-sm mb-3 pl-10">{review.text}</p>
+                                        <div className="flex items-center gap-4 pl-10">
+                                            <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-600 transition-colors">
+                                                <ThumbsUp size={14} /> {review.likes}
+                                            </button>
+                                            <button className="text-xs text-gray-400 hover:text-emerald-600 transition-colors">
+                                                Ответить
+                                            </button>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-gray-400">{review.date}</span>
-                                </div>
-                                <p className="text-gray-600 text-sm mb-3 pl-10">{review.text}</p>
-                                <div className="flex items-center gap-4 pl-10">
-                                    <button className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-600 transition-colors">
-                                        <ThumbsUp size={14} /> {review.likes}
-                                    </button>
-                                    <button className="text-xs text-gray-400 hover:text-emerald-600 transition-colors">
-                                        Ответить
-                                    </button>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                    
-                    <div className="mt-8 text-center">
-                        <Button variant="outline">Показать еще</Button>
-                    </div>
+                            
+                            <div className="mt-8 text-center">
+                                <Button variant="outline">Показать еще</Button>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center py-12 px-4 bg-gray-50 border border-gray-100 rounded-2xl mb-8 border-dashed">
+                            <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <h4 className="text-lg font-medium text-gray-900 mb-2">Пока нет отзывов</h4>
+                            <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+                                Будьте первыми, кто поделится впечатлениями о покупке! Ваши отзывы появятся здесь.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Rating Stats Sidebar */}

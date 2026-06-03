@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, Trash2, ShoppingBag, Eye, Mic, MicOff, Paperclip, Radio } from 'lucide-react';
+import { X, Send, Loader2, Trash2, ShoppingBag, Eye, Mic, MicOff, Paperclip, Radio, AudioLines } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getFloristChatResponse } from '../services/geminiService';
 import { ChatMessage, Product } from '../types';
 import { PRODUCTS } from '../constants';
@@ -29,6 +29,8 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const creativityRef = useRef<number>(5);
+  const [touchStart, setTouchStart] = useState<{ x: number, y: number } | null>(null);
+  const lastMessageTimeRef = useRef<number>(0);
 
   useEffect(() => {
     creativityRef.current = creativity;
@@ -39,6 +41,51 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
     messagesRef.current = messages;
   }, [messages]);
 
+  // Shake detection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let lastX = 0, lastY = 0, lastZ = 0;
+    const SHAKE_THRESHOLD = 15;
+
+    const handleMotion = (e: DeviceMotionEvent) => {
+      const { x, y, z } = e.accelerationIncludingGravity || {};
+      if (x === null || y === null || z === null || x === undefined || y === undefined || z === undefined) return;
+      
+      const deltaX = Math.abs(lastX - x);
+      const deltaY = Math.abs(lastY - y);
+      const deltaZ = Math.abs(lastZ - z);
+
+      if (deltaX > SHAKE_THRESHOLD || deltaY > SHAKE_THRESHOLD || deltaZ > SHAKE_THRESHOLD) {
+        onClose();
+      }
+
+      lastX = x;
+      lastY = y;
+      lastZ = z;
+    };
+
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
+  }, [isOpen, onClose]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart) return;
+    const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    const dx = touchEnd.x - touchStart.x;
+    const dy = touchEnd.y - touchStart.y;
+    
+    // Swipe Right or Swipe Down threshold
+    if (dx > 70 || dy > 70) {
+      onClose();
+    }
+    setTouchStart(null);
+  };
+
   const {
     isLiveMode,
     voiceState,
@@ -48,6 +95,15 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
     stopLiveMode
   } = useVoiceConversation({
     onTranscriptComplete: async (text) => {
+      const now = Date.now();
+      if (now - lastMessageTimeRef.current < 60000) {
+         const errText = "Пожалуйста, подождите 1 минуту перед отправкой следующего сообщения, чтобы не израсходовать все токены.";
+         setMessages(prev => [...prev, { role: 'model', text: errText, isError: true }]);
+         if (onNewMessage) onNewMessage();
+         return errText;
+      }
+      lastMessageTimeRef.current = now;
+
       const currentHistory = messagesRef.current;
       const newHistory: ChatMessage[] = [...currentHistory, { role: 'user', text }];
       setMessages(newHistory);
@@ -112,6 +168,13 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
   const handleSend = async () => {
     if ((!input.trim() && !selectedFile) || isLoading) return;
 
+    const now = Date.now();
+    if (now - lastMessageTimeRef.current < 60000) {
+      setMessages(prev => [...prev, { role: 'model', text: "Пожалуйста, подождите 1 минуту перед отправкой следующего сообщения, чтобы не израсходовать все токены.", isError: true }]);
+      return;
+    }
+    lastMessageTimeRef.current = now;
+
     const userMsg = input.trim();
     const currentImage = selectedFile;
     
@@ -159,28 +222,26 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
 
         if (product) {
           return (
-            <div key={index} className="my-6 bg-slate-800/80 rounded-2xl p-0 shadow-lg border border-cyan-500/20 overflow-hidden w-full max-w-[280px] md:max-w-[500px] flex flex-col mx-auto md:mx-0 group transition-all hover:shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:border-cyan-500/40">
-               {/* Increased height for desktop (h-[320px]) to match the 30% width increase */}
-               <div className="relative h-48 md:h-[320px] bg-slate-900 group-hover:opacity-95 transition-opacity cursor-pointer overflow-hidden" onClick={() => onQuickView && onQuickView(product)}>
+            <div key={index} className="my-4 bg-[#0d1117] rounded-lg p-0 shadow-sm border border-[#30363d] overflow-hidden w-full max-w-[280px] md:max-w-[400px] flex flex-col mx-auto md:mx-0 group transition-all hover:border-[#8b949e]">
+               <div className="relative h-48 md:h-[240px] bg-[#161b22] group-hover:opacity-95 transition-opacity cursor-pointer overflow-hidden" onClick={() => onQuickView && onQuickView(product)}>
                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                   {/* Quick View Overlay Hint - enhanced visibility */}
-                   <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                       <span className="bg-slate-900/90 backdrop-blur-md text-cyan-300 px-5 py-3 rounded-full text-sm font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(0,229,255,0.3)] transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                           <Eye size={18} /> Быстрый просмотр
+                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                       <span className="bg-[#1f6feb] text-white px-4 py-2 rounded-md text-[13px] font-medium flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                           <Eye size={16} /> Быстрый просмотр
                        </span>
                    </div>
                </div>
                
-               <div className="p-5 md:p-6 flex flex-col gap-3">
+               <div className="p-4 md:p-5 flex flex-col gap-2">
                   <div>
-                      <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">{product.category}</div>
-                      <p className="font-serif text-xl md:text-2xl text-white font-medium leading-tight">{product.name}</p>
+                      <div className="text-[10px] font-mono text-[#8b949e] uppercase tracking-wider mb-1">{product.category}</div>
+                      <p className="font-semibold text-[16px] md:text-[18px] text-[#e6edf3] leading-tight">{product.name}</p>
                   </div>
                   
-                  <div className="text-sm md:text-base text-slate-300 line-clamp-2">{product.description}</div>
+                  <div className="text-[13px] text-[#8b949e] line-clamp-2 leading-relaxed">{product.description}</div>
                   
-                  <div className="flex items-center justify-between mt-2 pt-4 border-t border-slate-700">
-                      <p className="font-serif text-xl md:text-2xl text-cyan-100">{product.price.toLocaleString('ru-RU')} ₽</p>
+                  <div className="flex items-center justify-between mt-2 pt-3 border-t border-[#30363d]">
+                      <p className="font-mono text-lg text-[#3fb950] font-medium">{product.price.toLocaleString('ru-RU')} ₽</p>
                       {onAddToCart && (
                         <Button 
                           variant="primary"
@@ -189,9 +250,9 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
                             e.stopPropagation();
                             onAddToCart(product);
                           }}
-                          className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white border-none shadow-[0_0_10px_rgba(0,229,255,0.3)]"
+                          className="flex items-center gap-2 bg-[#238636] hover:bg-[#2ea043] text-white border-transparent px-3 py-1.5 h-auto text-[13px] font-medium rounded-md shadow-sm"
                         >
-                          <ShoppingBag size={16} /> В корзину
+                          <ShoppingBag size={14} /> В корзину
                         </Button>
                       )}
                   </div>
@@ -201,58 +262,70 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
         }
         return null;
       }
-      // Render standard text, preserving line breaks and markdown
       return (
-        <div key={index} className="prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-p:my-1 prose-strong:text-white prose-a:text-cyan-400">
+        <div key={index} className="prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-p:my-1 prose-strong:text-[#c9d1d9] prose-a:text-[#58a6ff]">
           <ReactMarkdown>{part}</ReactMarkdown>
         </div>
       );
     });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-slate-950/95 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full md:w-[450px] lg:w-[500px] h-full flex flex-col border-l border-cyan-500/20 animate-in slide-in-from-right duration-300 relative overflow-hidden">
-        
-        {/* Atmospheric background glow */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-           <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[30%] bg-cyan-600/10 blur-[100px] rounded-full"></div>
-           <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
-        </div>
-
-        {/* Header */}
-        <div className="bg-slate-900/40 backdrop-blur-md p-5 flex flex-col gap-4 text-white shadow-md z-10 border-b border-cyan-500/20">
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[999] flex justify-end">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+            onClick={onClose} 
+            aria-label="Close dialog" 
+          />
+          <motion.div 
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="bg-[#0d1117] shadow-2xl w-full md:w-[450px] lg:w-[450px] h-full flex flex-col border-l border-[#30363d] relative overflow-hidden pointer-events-auto"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            
+            {/* Header */}
+        <div className="bg-[#161b22] px-5 py-4 flex flex-col gap-4 text-[#e6edf3] shadow-sm z-10 border-b border-[#30363d] relative rounded-t-xl md:rounded-tl-none">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-white/5 rounded-full">
-                <FloraIcon className="w-6 h-6 animate-aster" />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center p-1 text-2xl">
+                <FloraIcon className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="font-serif font-semibold text-xl tracking-wide text-cyan-50">Flora AI</h3>
-                <p className="text-cyan-400 text-xs font-medium opacity-90">Ваш личный флорист</p>
+                <h3 className="font-semibold text-[15px] tracking-tight text-[#e6edf3]">Flora AI</h3>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button 
                 onClick={clearHistory} 
-                className="p-2.5 hover:bg-cyan-500/10 rounded-full transition-colors text-cyan-400 hover:text-cyan-300"
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-[#c9d1d9]"
                 title="Очистить историю"
               >
-                <Trash2 size={20} />
+                <Trash2 size={16} />
               </button>
-              <button onClick={onClose} className="p-2.5 hover:bg-cyan-500/10 rounded-full transition-colors text-slate-400 hover:text-white">
-                <X size={24} />
+              <button 
+                onClick={onClose} 
+                className="p-2 hover:bg-[#30363d] rounded-lg transition-colors text-[#8b949e] hover:text-[#c9d1d9]"
+                aria-label="Close"
+              >
+                <X size={18} />
               </button>
             </div>
           </div>
           
           {/* Creativity Slider */}
-          <div className="flex flex-col gap-2 pt-2 border-t border-cyan-500/10">
+          <div className="flex flex-col gap-1.5 pt-3 border-t border-[#30363d]">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium tracking-wide uppercase">Креативность ИИ</span>
-              <span className="text-xs text-cyan-400 font-bold">{creativity}/10</span>
+              <span className="text-[10px] text-[#8b949e] font-mono tracking-wider uppercase">Креативность ИИ</span>
+              <span className="text-[10px] text-[#3fb950] font-mono">{creativity}/10</span>
             </div>
             <input 
               type="range" 
@@ -261,9 +334,9 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
               step="1"
               value={creativity}
               onChange={(e) => setCreativity(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              className="w-full h-1 bg-[#30363d] rounded-lg appearance-none cursor-pointer accent-[#58a6ff]"
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-500 mt-0.5 px-0.5">
+            <div className="flex items-center justify-between text-[9px] text-[#8b949e] mt-1 px-0.5">
               <span>Точно</span>
               <span>Баланс</span>
               <span>Креативно</span>
@@ -272,7 +345,7 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-transparent scroll-smooth z-10">
+        <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-[#0d1117] scroll-smooth z-10 pb-6 font-sans">
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
@@ -280,15 +353,15 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
             >
               <div 
                 className={`
-                  max-w-[85%] rounded-3xl p-4 md:p-5 text-sm md:text-base leading-relaxed flex flex-col gap-3 backdrop-blur-md relative
+                  max-w-[85%] rounded-2xl px-4 py-3 text-[14.5px] leading-relaxed flex flex-col gap-2 relative
                   ${msg.role === 'user' 
-                    ? 'bg-gradient-to-br from-cyan-600/90 to-blue-700/90 text-white rounded-br-sm shadow-[0_8px_20px_rgba(0,229,255,0.15)] border border-cyan-400/30' 
-                    : 'bg-slate-800/60 text-slate-100 rounded-bl-sm border border-slate-700/50 shadow-lg'}
-                  ${msg.isError ? 'border-red-500/50 bg-red-950/50 text-red-400' : ''}
+                    ? 'bg-[#238636] text-white self-end shadow-sm border border-[#2ea043]/30 rounded-br-sm' 
+                    : 'bg-[#161b22] text-[#e6edf3] self-start border border-[#30363d] shadow-sm rounded-bl-sm'}
+                  ${msg.isError ? 'border-[#da3633] bg-[#f85149]/10 text-[#ff7b72]' : ''}
                 `}
               >
                 {msg.image && (
-                  <img src={msg.image} alt="Uploaded" className="max-w-full rounded-lg max-h-48 object-cover" />
+                  <img src={msg.image} alt="Uploaded" className="max-w-full rounded-lg max-h-48 object-cover shadow-sm mb-1" />
                 )}
                 {renderMessageContent(msg.text)}
               </div>
@@ -296,9 +369,9 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-slate-800/60 backdrop-blur-md rounded-3xl rounded-bl-sm p-4 md:p-5 shadow-lg border border-slate-700/50 flex items-center gap-3">
-                <Loader2 className="animate-spin text-cyan-400" size={20} />
-                <span className="text-sm text-slate-300 font-medium">Flora печатает...</span>
+              <div className="bg-[#161b22] rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-[#30363d] flex items-center gap-2">
+                <Loader2 className="animate-spin text-[#8b949e]" size={16} />
+                <span className="text-[14px] text-[#8b949e]">Flora печатает...</span>
               </div>
             </div>
           )}
@@ -306,23 +379,23 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
         </div>
 
         {/* Input Area */}
-        <div className="p-5 bg-slate-900/60 backdrop-blur-md border-t border-cyan-500/20 shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.3)] z-10">
+        <div className="p-4 bg-[#0d1117] relative z-10">
           {selectedFile && (
-            <div className="mb-3 relative inline-block">
-              <img src={selectedFile} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-cyan-500/30" />
+            <div className="mb-3 ml-2 relative inline-block">
+              <img src={selectedFile} alt="Preview" className="h-14 w-14 object-cover rounded-xl border border-[#30363d]" />
               <button 
                 onClick={() => setSelectedFile(null)}
-                className="absolute -top-2 -right-2 bg-slate-800 text-slate-300 hover:text-white rounded-full p-1 border border-slate-600"
+                className="absolute -top-2 -right-2 bg-[#161b22] text-[#8b949e] hover:text-[#c9d1d9] rounded-full p-1 border border-[#30363d] shadow-md"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
             </div>
           )}
-          <div className="flex gap-3 items-end">
-             <div className="relative flex-1 flex items-center bg-slate-800 border border-slate-700 rounded-3xl focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/50 transition-all">
+          <div className="flex gap-2 items-end">
+             <div className="relative flex-1 flex items-center bg-[#161b22] border border-[#30363d] rounded-[24px] focus-within:border-[#8b949e] transition-colors px-1.5 py-1.5 min-h-[52px]">
                <button
                  onClick={() => fileInputRef.current?.click()}
-                 className="p-3 text-slate-400 hover:text-cyan-300 transition-colors"
+                 className="p-2 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded-full hover:bg-[#30363d]"
                  title="Прикрепить фото"
                >
                  <Paperclip size={20} />
@@ -339,28 +412,36 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
                  value={input}
                  onChange={(e) => setInput(e.target.value)}
                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                 placeholder="Напишите сообщение..."
-                 className="flex-1 bg-transparent px-2 py-3 focus:outline-none text-slate-200 placeholder-slate-500"
+                 placeholder="Спросите Flora..."
+                 className="flex-1 bg-transparent px-2 py-2 focus:outline-none text-[#e6edf3] placeholder-[#8b949e] text-[15px]"
                  disabled={isLoading || isLiveMode}
                />
+               
+               {(input.trim() || selectedFile) ? (
+                 <button 
+                   onClick={handleSend}
+                   disabled={isLoading || isLiveMode}
+                   className="bg-white text-black p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex-shrink-0 mr-1"
+                 >
+                   <Send size={18} />
+                 </button>
+               ) : (
+                 <button
+                   className="p-2 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded-full hover:bg-[#30363d] mr-1"
+                   title="Голосовой ввод"
+                 >
+                   <Mic size={20} />
+                 </button>
+               )}
              </div>
              
-             {(input.trim() || selectedFile) ? (
-               <button 
-                 onClick={handleSend}
-                 disabled={isLoading || isLiveMode}
-                 className="bg-cyan-600 text-white p-3.5 rounded-full hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] active:scale-95 transform duration-150 flex-shrink-0 animate-in zoom-in duration-200"
-               >
-                 <Send size={20} />
-               </button>
-             ) : (
+             {!input.trim() && !selectedFile && (
                <button
                  onClick={toggleLiveMode}
-                 className={`p-3.5 rounded-full transition-all duration-300 flex-shrink-0 animate-in zoom-in duration-200 flex items-center gap-2 ${isLiveMode ? 'bg-cyan-900/50 text-cyan-400 animate-pulse ring-2 ring-cyan-500/50' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-cyan-300'}`}
+                 className={`w-[52px] h-[52px] rounded-full flex items-center justify-center transition-all flex-shrink-0 shadow-sm ${isLiveMode ? 'bg-[#da3633] text-white animate-pulse' : 'bg-white text-black hover:bg-gray-200'}`}
                  title="Режим живого диалога"
                >
-                 {isLiveMode ? <Radio size={20} className="animate-pulse text-red-500" /> : <Mic size={20} />}
-                 <span className="text-sm font-medium hidden sm:inline-block">{isLiveMode ? 'LIVE' : 'LIVE'}</span>
+                 {isLiveMode ? <MicOff size={22} /> : <AudioLines size={22} />}
                </button>
              )}
           </div>
@@ -377,7 +458,10 @@ export const AIFlorist: React.FC<AIFloristProps> = ({ isOpen, onClose, onAddToCa
             />
           )}
         </AnimatePresence>
-      </div>
-    </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 };
+
