@@ -46,31 +46,40 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Contacts */}
+          {/* Contacts & Requisites */}
           <div>
-            <h4 className="font-semibold text-lg text-[#c9d1d9] mb-6">Контакты</h4>
-            <ul className="space-y-4 text-sm">
+            <h4 className="font-semibold text-lg text-[#c9d1d9] mb-6">Контакты и реквизиты</h4>
+            <ul className="space-y-4 text-sm mb-6">
               <li className="flex items-start gap-3">
-                <MapPin size={18} className="mt-0.5 text-[#58a6ff]" />
-                <span>Москва, ул. Цветочная, д. 12,<br/>БЦ "Оранжерея", офис 404</span>
+                <MapPin size={18} className="mt-0.5 text-[#58a6ff] shrink-0" />
+                <span>141100, Московская область, г. Щёлково,<br/>д. 4, стр. А, кв. 6</span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone size={18} className="text-[#58a6ff]" />
+                <Phone size={18} className="text-[#58a6ff] shrink-0" />
                 <a href="tel:+79990000000" className="hover:text-[#58a6ff]">+7 (999) 000-00-00</a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail size={18} className="text-[#58a6ff]" />
-                <a href="mailto:hello@auraflora.com" className="hover:text-[#58a6ff]">hello@auraflora.com</a>
+                <Mail size={18} className="text-[#58a6ff] shrink-0" />
+                <a href="mailto:info@floramos.ru" className="hover:text-[#58a6ff]">info@floramos.ru</a>
               </li>
             </ul>
+            
+            <div className="text-xs text-[#8b949e] space-y-1.5 border-l-2 border-[#30363d] pl-3 py-1">
+              <p className="font-medium text-[#c9d1d9]">ИП Мороз Валерий Викторович</p>
+              <p>ИНН: 775128591381</p>
+              <p>ОГРН: 324508100327624</p>
+              <p>Р/С: 40802810638000517985</p>
+              <p>К/С: 30101810400000000225</p>
+              <p>Банк: ПАО Сбербанк (БИК 044525225)</p>
+            </div>
           </div>
         </div>
 
         <div className="border-t border-[#30363d] pt-6 md:pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#8b949e]">
           <p>© 2024 Floramos. Все права защищены.</p>
-          <div className="flex gap-6">
-             <span>ИНН 7700000000</span>
-             <span>ОГРН 1027700000000</span>
+          <div className="flex flex-wrap justify-center gap-6">
+             <Link to="/about" className="hover:text-white transition-colors">О нас</Link>
+             <Link to="/partners" className="hover:text-white transition-colors">Партнерам</Link>
           </div>
         </div>
       </div>

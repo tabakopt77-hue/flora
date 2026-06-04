@@ -1,10 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, 'brain.json');
+const DB_PATH = path.join(process.cwd(), 'backend', 'brain.json');
 
 interface Memory {
   id: number;

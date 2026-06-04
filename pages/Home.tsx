@@ -190,11 +190,11 @@ export const Home: React.FC<HomeProps> = ({ allProducts, onAddToCart, onQuickVie
         </div>
 
         {/* 2. Слой контента (Next.js + Tailwind) */}
-        <div className="container relative z-20 mx-auto px-6 md:px-8 pt-28 pb-12 lg:py-0 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center w-full">
+        <div className="container relative z-20 mx-auto px-6 md:px-8 pt-24 md:pt-28 pb-12 lg:py-0 w-full min-h-screen flex flex-col justify-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch w-full">
             
             {/* Left Content Column */}
-            <div className="lg:col-span-7 flex flex-col justify-center text-left relative min-h-[500px]">
+            <div className="lg:col-span-7 flex flex-col justify-center text-left relative min-h-[500px] pt-4 pb-12 md:py-12">
               
               {/* Image Preview Overlay */}
               <AnimatePresence>
@@ -319,12 +319,48 @@ export const Home: React.FC<HomeProps> = ({ allProducts, onAddToCart, onQuickVie
 
                 </div>
               </motion.div>
+
+              {/* Real-time scrolling reviews at the bottom of the hero section */}
+              <div className="mt-5 w-full overflow-hidden relative pointer-events-auto max-w-[800px] -ml-2 mb-2">
+                 <div className="absolute top-0 bottom-0 left-0 w-8 bg-gradient-to-r from-white/20 to-transparent z-10 hidden md:block"></div>
+                 <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-[#fafdfb] to-transparent z-10 hidden md:block"></div>
+                 
+                 <div className="flex w-max animate-marquee-horizontal-reverse">
+                    {/* Initial set of reviews */}
+                    {[...Array(2)].map((_, arrayIndex) => (
+                       <div key={`reviews-${arrayIndex}`} className="flex gap-4 px-2">
+                         {[
+                           { name: "Анна С.", text: "Шикарные пионы, доставка минута в минуту! 🌸", rating: 5, time: "2 мин назад" },
+                           { name: "Виктор М.", text: "Жена просто в восторге от роз. Спасибо!", rating: 5, time: "7 мин назад" },
+                           { name: "Елена В.", text: "Очень стильная упаковка и свежайшие цветы.", rating: 5, time: "14 мин назад" },
+                           { name: "Максим Д.", text: "Оперативно, красиво, еще и открытку подписали.", rating: 5, time: "19 мин назад" },
+                           { name: "Ольга Н.", text: "Лучший сервис в городе. Цветы стоят уже неделю!", rating: 5, time: "25 мин назад" },
+                           { name: "Денис К.", text: "Приятные цены и очень крутое качество.", rating: 5, time: "32 мин назад" },
+                         ].map((review, i) => (
+                           <div key={i} className="flex-shrink-0 w-[280px] bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-slate-200/50 shadow-sm hover:shadow-md transition-all cursor-default">
+                             <div className="flex justify-between items-start mb-2">
+                               <div className="font-semibold text-slate-800 text-sm">{review.name}</div>
+                               <div className="text-xs text-slate-400 font-medium whitespace-nowrap">{review.time}</div>
+                             </div>
+                             <div className="flex gap-0.5 mb-2">
+                               {[...Array(5)].map((_, starIndex) => (
+                                 <Star key={starIndex} size={12} className={starIndex < review.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"} />
+                               ))}
+                             </div>
+                             <p className="text-slate-600 text-sm leading-snug">{review.text}</p>
+                           </div>
+                         ))}
+                       </div>
+                    ))}
+                 </div>
+              </div>
+
               </div>
             </div>
 
             {/* Right Row Side (Awwwards 100 Live Orders Carousel scroller feed) */}
-            <div className="lg:col-span-5 hidden lg:flex flex-col items-center justify-center relative pointer-events-auto h-full pr-4">
-              <div className="bg-white/45 backdrop-blur-xl border border-slate-200/50 p-6 rounded-[32px] w-full max-w-lg flex flex-col shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.02)] select-none relative overflow-hidden h-[680px]">
+            <div className="lg:col-span-5 hidden lg:flex flex-col items-center justify-stretch relative pointer-events-auto h-[100vh] pt-24 pb-12 pr-4">
+              <div className="bg-white/45 backdrop-blur-xl border border-slate-200/50 p-6 rounded-[32px] w-full max-w-lg flex flex-col shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.02)] select-none relative overflow-hidden h-full">
                 
                 {/* Header of Feed */}
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200/50">
@@ -404,41 +440,6 @@ export const Home: React.FC<HomeProps> = ({ allProducts, onAddToCart, onQuickVie
               </div>
             </div>
 
-          </div>
-          
-          {/* Real-time scrolling reviews at the bottom of the hero section */}
-          <div className="mt-16 sm:mt-24 w-full overflow-hidden relative pb-6">
-             <div className="absolute top-0 bottom-0 left-0 w-24 bg-gradient-to-r from-[#f8f9fa] to-transparent z-10"></div>
-             <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-[#f8f9fa] to-transparent z-10"></div>
-             
-             <div className="flex w-max animate-marquee-horizontal-reverse">
-                {/* Initial set of reviews */}
-                {[...Array(2)].map((_, arrayIndex) => (
-                   <div key={`reviews-${arrayIndex}`} className="flex gap-4 px-2">
-                     {[
-                       { name: "Анна С.", text: "Шикарные пионы, доставка минута в минуту! 🌸", rating: 5, time: "2 мин назад" },
-                       { name: "Виктор М.", text: "Жена просто в восторге от роз. Спасибо!", rating: 5, time: "7 мин назад" },
-                       { name: "Елена В.", text: "Очень стильная упаковка и свежайшие цветы.", rating: 5, time: "14 мин назад" },
-                       { name: "Максим Д.", text: "Оперативно, красиво, еще и открытку подписали.", rating: 5, time: "19 мин назад" },
-                       { name: "Ольга Н.", text: "Лучший сервис в городе. Цветы стоят уже неделю!", rating: 5, time: "25 мин назад" },
-                       { name: "Денис К.", text: "Приятные цены и очень крутое качество.", rating: 5, time: "32 мин назад" },
-                     ].map((review, i) => (
-                       <div key={i} className="flex-shrink-0 w-[300px] bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-slate-200/50 shadow-sm hover:shadow-md transition-all cursor-default">
-                         <div className="flex justify-between items-start mb-2">
-                           <div className="font-semibold text-slate-800 text-sm">{review.name}</div>
-                           <div className="text-xs text-slate-400 font-medium whitespace-nowrap">{review.time}</div>
-                         </div>
-                         <div className="flex gap-0.5 mb-2">
-                           {[...Array(5)].map((_, starIndex) => (
-                             <Star key={starIndex} size={12} className={starIndex < review.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"} />
-                           ))}
-                         </div>
-                         <p className="text-slate-600 text-sm leading-snug">{review.text}</p>
-                       </div>
-                     ))}
-                   </div>
-                ))}
-             </div>
           </div>
           
         </div>
